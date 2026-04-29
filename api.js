@@ -7,3 +7,18 @@ export const api = axios.create({
     "Content-Type": "application/json",
   },
 });
+
+// Response interceptor for better error visibility on Vercel
+api.interceptors.response.use(
+  (response) => response, // Keep full response for compatibility with response.data.status
+  (error) => {
+    console.error("🌐 API Connection Error:", {
+      message: error.message,
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      data: error.response?.data,
+    });
+    return Promise.reject(error);
+  }
+);
