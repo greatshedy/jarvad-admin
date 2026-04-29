@@ -44,7 +44,9 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
     }
   }, [initialData]);
 
+  const [imageFiles, setImageFiles] = useState([]);
   const [showPlanForm, setShowPlanForm] = useState(false);
+
   const [landmarkInput, setLandmarkInput] = useState('');
   const [benefitInput, setBenefitInput] = useState('');
   const [installmentInput, setInstallmentInput] = useState('');
@@ -132,23 +134,44 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
     const filesToProcess = files.slice(0, remainingSlots);
 
     filesToProcess.forEach(file => {
+      // Check size (200KB)
+      if (file.size > 200 * 1024) {
+        alert(`Image "${file.name}" is too large! Max size is 200KB. Please compress it before uploading.`);
+        return;
+      }
+
       const reader = new FileReader();
       reader.onloadend = () => {
         setFormData(prev => ({
           ...prev,
           house_image: [...(prev.house_image || []), reader.result]
         }));
+        // Store the raw file for FormData submission
+        setImageFiles(prev => [...prev, file]);
       };
       reader.readAsDataURL(file);
     });
   };
 
   const handleRemoveImage = (index) => {
+    // Determine if this is a new image (base64) or an existing one (URL)
+    const imgToRemove = formData.house_image[index];
+    const isNewImage = imgToRemove.startsWith('data:');
+
+    if (isNewImage) {
+      // If it's a new image, we need to find its index in the imageFiles array
+      // This is slightly tricky if there are multiple new images.
+      // Let's find how many new images came before this one.
+      const newImagesBefore = formData.house_image.slice(0, index).filter(img => img.startsWith('data:')).length;
+      setImageFiles(prev => prev.filter((_, i) => i !== newImagesBefore));
+    }
+
     setFormData(prev => ({
       ...prev,
       house_image: prev.house_image.filter((_, i) => i !== index)
     }));
   };
+
 
   const handleAddTag = (e, field, inputState, setInputState) => {
     if (e.key === ',' || e.key === 'Enter') {
@@ -176,8 +199,14 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
     if (onSubmit) {
       // Clean Handover: Deep clone the formData to ensure it's a completely fresh object
       const finalSubmissionData = JSON.parse(JSON.stringify(formData));
+      
+      // Separate existing URLs from new base64 images
+      // (Backend now expects raw Files, but we keep URLs for "no-change" on edit)
+      const existingUrls = finalSubmissionData.house_image.filter(img => !img.startsWith('data:'));
+      
       console.log(`[FORM] Submitting data for "${finalSubmissionData.house_name}":`, finalSubmissionData);
-      onSubmit(finalSubmissionData);
+      onSubmit(finalSubmissionData, imageFiles, existingUrls);
+
     } else {
       console.log('Final Submission Data:', formData);
       alert(`Estate "${formData.house_name}" ${initialData ? 'updated' : 'created'} with ${formData.house_pricing_plan.length} pricing plans!`);

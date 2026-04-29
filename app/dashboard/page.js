@@ -90,14 +90,28 @@ const DashboardPage = () => {
     initDashboard();
   }, []);
 
-  const handleAddHouse = async (newHouse) => {
-    // this function is for adding a new house to the database
+  const handleAddHouse = async (houseData, imageFiles) => {
     try {
       setIsSubmitting(true);
-      const response = await api.post('/add-house', newHouse);
-      console.log("Add House Response:", response);
+      
+      const formData = new FormData();
+      formData.append('house_name', houseData.house_name);
+      formData.append('house_about', houseData.house_about);
+      formData.append('house_location', houseData.house_location);
+      formData.append('house_status', houseData.house_status);
+      formData.append('house_pricing_plan', JSON.stringify(houseData.house_pricing_plan));
+      formData.append('house_landmarks', JSON.stringify(houseData.house_landmarks));
+      formData.append('house_benefits', JSON.stringify(houseData.house_benefits));
+      
+      imageFiles.forEach(file => {
+        formData.append('images', file);
+      });
+
+      const response = await api.post('/add-house', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
       if(response.data.status === 201 || response.data.status === 200){
-        // We refetch to ensure we have the latest data from the DB (including labels/IDs)
         await fetchHouses();
         setActiveView('estates');
       } else {
@@ -111,21 +125,28 @@ const DashboardPage = () => {
     }
   };
 
-  const handleUpdateHouse = async (updatedHouse) => {
+
+  const handleUpdateHouse = async (houseData, imageFiles, existingUrls) => {
     setIsSubmitting(true);
     try {
-      // Defensive Deep Clone: Break all final memory references before submission
-      const sanitizedHouse = JSON.parse(JSON.stringify(updatedHouse));
-
-      // Audit Log: Verify the payload before it leaves the frontend
-      console.log(`[AUDIT] Updating House ${editingEstate._id}:`, {
-        name: sanitizedHouse.house_name,
-        imagesCount: sanitizedHouse.house_image?.length || 0,
-        payload: sanitizedHouse
+      const formData = new FormData();
+      formData.append('house_name', houseData.house_name);
+      formData.append('house_about', houseData.house_about);
+      formData.append('house_location', houseData.house_location);
+      formData.append('house_status', houseData.house_status);
+      formData.append('house_pricing_plan', JSON.stringify(houseData.house_pricing_plan));
+      formData.append('house_landmarks', JSON.stringify(houseData.house_landmarks));
+      formData.append('house_benefits', JSON.stringify(houseData.house_benefits));
+      formData.append('existing_images', JSON.stringify(existingUrls));
+      
+      imageFiles.forEach(file => {
+        formData.append('images', file);
       });
 
-      // Reverted GET back to PUT to support the full payload in the body
-      const response = await api.put(`/update-house/${editingEstate._id}`, sanitizedHouse);
+      const response = await api.put(`/update-house/${editingEstate._id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
       if (response.data.status === 200) {
         await fetchHouses();
         setEditingEstate(null);
@@ -137,6 +158,7 @@ const DashboardPage = () => {
       setIsSubmitting(false);
     }
   };
+
 
   const handleAddChild = (childData) => {
     setChildInvestments([...childInvestments, { ...childData, id: Date.now(), status: 'Active' }]);
@@ -297,7 +319,7 @@ const DashboardPage = () => {
 
             onEdit={async(id)=>{
               try{
-                const response = await api.put(`/get-selected-house-by-id/${id}`);
+                const response = await api.get(`/get-selected-house-by-id/${id}`);
                 if(response.data.status === 200){
                   setEditingEstate(response.data.data);
                 }
@@ -305,6 +327,7 @@ const DashboardPage = () => {
                 console.error("Error fetching house:", error);
               }
             }}
+
           />
         </div>
       )}
