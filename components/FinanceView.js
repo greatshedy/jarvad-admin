@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '@/api';
 import Loader from './Loader';
+import Modal from './Modal';
 
 const FinanceView = () => {
   const [summary, setSummary] = useState(null);
@@ -11,6 +12,7 @@ const FinanceView = () => {
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('ALL');
   const [processingId, setProcessingId] = useState(null);
+  const [proofUrl, setProofUrl] = useState(null);
   
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -25,7 +27,6 @@ const FinanceView = () => {
       setIsLoading(true);
       setError(null);
       
-      // Pass pagination params
       const [summaryRes, transactionsRes] = await Promise.all([
         api.get('/finance/summary'),
         api.get(`/finance/transactions?page=${page}&page_size=15`)
@@ -56,14 +57,22 @@ const FinanceView = () => {
   }, [currentPage]);
 
   const handleAction = async (txRef, action) => {
+    if (action === 'delete' && !confirm('Are you sure you want to permanently delete this transaction record?')) return;
+    
     setProcessingId(txRef);
     try {
       let endpoint = '';
+      let method = 'post';
+
       if (action === 'approve') endpoint = `/finance/approve-transaction/${txRef}`;
       else if (action === 'decline') endpoint = `/finance/decline-transaction/${txRef}`;
       else if (action === 'processing') endpoint = `/finance/processing-transaction/${txRef}`;
+      else if (action === 'delete') {
+        endpoint = `/finance/delete-transaction/${txRef}`;
+        method = 'delete';
+      }
 
-      const response = await api.post(endpoint);
+      const response = await api[method](endpoint);
       if (response.data.status === 200) {
         await fetchData(currentPage);
       } else {
@@ -85,8 +94,9 @@ const FinanceView = () => {
     }).format(amount);
   };
 
-  const getPaymentMethod = (gateway) => {
-    if (!gateway) return 'Unknown';
+  const getPaymentMethod = (tx) => {
+    const gateway = tx.gateway || 'Unknown';
+    if (tx.is_manual) return 'Manual Bank Transfer';
     if (gateway.toLowerCase() === 'bank transfer') return 'Direct Bank Transfer';
     if (['flutterwave', 'monnify', 'paystack'].includes(gateway.toLowerCase())) return 'Gateway';
     if (gateway.toLowerCase() === 'card') return 'Card';
@@ -139,7 +149,7 @@ const FinanceView = () => {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         <FinanceCard 
-          title="Total Property Revenue" 
+          title="Property Revenue" 
           value={formatCurrency(summary?.total_properties_revenue || 0)} 
           subtitle={`${summary?.total_properties_count || 0} Properties Sold`}
           icon="trending-up"
@@ -147,21 +157,21 @@ const FinanceView = () => {
           color="indigo"
         />
         <FinanceCard 
-          title="Total Wallet Liabilities" 
+          title="Wallet Liabilities" 
           value={formatCurrency(summary?.total_wallet_balance || 0)} 
           subtitle="Customer Funds in Escrow"
           icon="wallet"
           color="amber"
         />
         <FinanceCard 
-          title="Total Transactions" 
+          title="Transactions" 
           value={pagination.total_count} 
-          subtitle="All types (Success + Pending)"
+          subtitle="All types (Total)"
           icon="switch-horizontal"
           color="emerald"
         />
         <FinanceCard 
-          title="Registered Users" 
+          title="Users" 
           value={summary?.total_users_count || 0} 
           subtitle="Total User Base"
           icon="users"
@@ -207,12 +217,18 @@ const FinanceView = () => {
                 <tr key={tx._id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-all group">
                   <td className="p-4">
                     <p className="text-sm font-bold text-zinc-900 dark:text-white">{tx.user_name}</p>
-                    <p className="text-xs text-zinc-500 font-mono mt-0.5">{tx.tx_ref}</p>
+                    <p className="text-[10px] text-zinc-400 uppercase tracking-tight">{tx.user_email}</p>
+                    <p className="text-[10px] text-zinc-500 font-mono mt-0.5">{tx.tx_ref}</p>
                   </td>
                   <td className="p-4">
-                    <p className="text-sm text-zinc-700 dark:text-zinc-300 font-medium">
-                      {getPaymentMethod(tx.gateway)}
-                    </p>
+                    <div className="flex flex-col gap-1">
+                      <p className="text-sm text-zinc-700 dark:text-zinc-300 font-medium">
+                        {getPaymentMethod(tx)}
+                      </p>
+                      {tx.is_manual && (
+                        <span className="inline-flex w-fit px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 text-[8px] font-black uppercase">Manual</span>
+                      )}
+                    </div>
                   </td>
                   <td className="p-4">
                     <div className="flex items-center gap-2">
@@ -239,41 +255,53 @@ const FinanceView = () => {
                     </span>
                   </td>
                   <td className="p-4 text-right pr-6">
-                    {tx.status !== 'SUCCESS' && tx.status !== 'FAILED' && tx.status !== 'Completed' && (
-                      <div className="flex items-center justify-end gap-2 lg:opacity-0 lg:group-hover:opacity-100 transition-all">
+                    <div className="flex items-center justify-end gap-2 transition-all">
+                      {tx.proof_url && (
                         <button
-                          disabled={processingId === tx.tx_ref}
-                          onClick={() => handleAction(tx.tx_ref, 'approve')}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-lg transition-all shadow-lg shadow-emerald-600/20"
+                          onClick={() => setProofUrl(tx.proof_url)}
+                          className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 text-[10px] font-bold rounded-lg hover:bg-indigo-100 transition-all"
                         >
-                          Approve
+                          View Proof
                         </button>
-                        <button
-                          disabled={processingId === tx.tx_ref}
-                          onClick={() => handleAction(tx.tx_ref, 'processing')}
-                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold rounded-lg transition-all shadow-lg shadow-indigo-600/20"
-                        >
-                          Processing
-                        </button>
-                        <button
-                          disabled={processingId === tx.tx_ref}
-                          onClick={() => handleAction(tx.tx_ref, 'decline')}
-                          className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold rounded-lg transition-all shadow-lg shadow-rose-600/20"
-                        >
-                          Decline
-                        </button>
-                      </div>
-                    )}
+                      )}
+                      
+                      {tx.status !== 'SUCCESS' && tx.status !== 'FAILED' && (
+                        <>
+                          <button
+                            disabled={processingId === tx.tx_ref}
+                            onClick={() => handleAction(tx.tx_ref, 'approve')}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-lg transition-all shadow-lg shadow-emerald-600/20"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            disabled={processingId === tx.tx_ref}
+                            onClick={() => handleAction(tx.tx_ref, 'processing')}
+                            className="px-3 py-1.5 bg-zinc-900 dark:bg-zinc-700 text-white text-[10px] font-bold rounded-lg transition-all"
+                          >
+                            Processing
+                          </button>
+                          <button
+                            disabled={processingId === tx.tx_ref}
+                            onClick={() => handleAction(tx.tx_ref, 'decline')}
+                            className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold rounded-lg transition-all"
+                          >
+                            Decline
+                          </button>
+                        </>
+                      )}
+
+                      <button
+                        disabled={processingId === tx.tx_ref}
+                        onClick={() => handleAction(tx.tx_ref, 'delete')}
+                        className="p-1.5 text-zinc-400 hover:text-rose-600 transition-all rounded-lg"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
-              {filteredTransactions.length === 0 && (
-                <tr>
-                  <td colSpan="6" className="p-10 text-center text-zinc-500 dark:text-zinc-400">
-                    No transactions found for the selected filter on this page.
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
@@ -291,31 +319,6 @@ const FinanceView = () => {
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
             </button>
-            
-            {Array.from({ length: Math.min(5, pagination.total_pages) }, (_, i) => {
-              // Simple pagination logic for current page context
-              let pageNum = currentPage;
-              if (currentPage <= 3) pageNum = i + 1;
-              else if (currentPage >= pagination.total_pages - 2) pageNum = pagination.total_pages - 4 + i;
-              else pageNum = currentPage - 2 + i;
-              
-              if (pageNum < 1 || pageNum > pagination.total_pages) return null;
-
-              return (
-                <button
-                  key={pageNum}
-                  onClick={() => setCurrentPage(pageNum)}
-                  className={`w-9 h-9 rounded-xl text-xs font-bold transition-all ${
-                    currentPage === pageNum 
-                      ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-lg' 
-                      : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-white dark:hover:bg-zinc-800 border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700'
-                  }`}
-                >
-                  {pageNum}
-                </button>
-              );
-            })}
-
             <button
               disabled={currentPage === pagination.total_pages}
               onClick={() => setCurrentPage(prev => prev + 1)}
@@ -326,6 +329,31 @@ const FinanceView = () => {
           </div>
         </div>
       </div>
+
+      {/* Proof Modal */}
+      <Modal 
+        isOpen={!!proofUrl} 
+        onClose={() => setProofUrl(null)}
+        title="Payment Proof Verification"
+      >
+        <div className="flex flex-col items-center gap-6">
+          <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-3xl overflow-hidden border border-zinc-200 dark:border-zinc-700 flex items-center justify-center min-h-[400px]">
+            <img 
+              src={proofUrl} 
+              alt="Payment Proof" 
+              className="max-w-full max-h-[70vh] object-contain"
+              onError={(e) => { e.target.src = 'https://placehold.co/600x400?text=Proof+Image+Not+Found'; }}
+            />
+          </div>
+          <p className="text-zinc-500 text-sm text-center italic">Verify the details on this receipt before approving the transaction.</p>
+          <button 
+            onClick={() => setProofUrl(null)}
+            className="px-10 py-4 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-bold rounded-2xl"
+          >
+            Close Preview
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 };
@@ -348,16 +376,10 @@ const FinanceCard = ({ title, value, subtitle, icon, trend, color }) => {
           {icon === 'switch-horizontal' && <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>}
           {icon === 'users' && <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>}
         </div>
-        {trend && (
-          <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded-lg">
-            {trend}
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
-          </span>
-        )}
       </div>
-      <p className="text-zinc-500 dark:text-zinc-400 text-sm font-bold uppercase tracking-wider">{title}</p>
+      <p className="text-zinc-500 dark:text-zinc-400 text-xs font-bold uppercase tracking-wider">{title}</p>
       <h3 className="text-2xl font-black text-zinc-900 dark:text-white mt-1">{value}</h3>
-      <p className="text-zinc-400 dark:text-zinc-500 text-xs mt-1">{subtitle}</p>
+      <p className="text-zinc-400 dark:text-zinc-500 text-[10px] mt-1 font-medium">{subtitle}</p>
     </div>
   );
 };
