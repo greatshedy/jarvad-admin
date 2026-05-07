@@ -122,7 +122,54 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
     }));
   };
 
-  const handleFileChange = (e) => {
+  const compressImage = (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          // Max dimension to help reduce size
+          const MAX_DIM = 1200;
+          if (width > height) {
+            if (width > MAX_DIM) {
+              height *= MAX_DIM / width;
+              width = MAX_DIM;
+            }
+          } else {
+            if (height > MAX_DIM) {
+              width *= MAX_DIM / height;
+              height = MAX_DIM;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Iterate quality to get under 200KB
+          let quality = 0.8;
+          let dataUrl = canvas.toDataURL('image/jpeg', quality);
+          
+          // Rough estimate of size from base64
+          while (dataUrl.length * 0.75 > 200 * 1024 && quality > 0.1) {
+            quality -= 0.1;
+            dataUrl = canvas.toDataURL('image/jpeg', quality);
+          }
+          
+          resolve(dataUrl);
+        };
+      };
+    });
+  };
+
+  const handleFileChange = async (e) => {
     const files = Array.from(e.target.files);
     const existingCount = formData.house_image?.length || 0;
     const remainingSlots = 5 - existingCount;
@@ -133,24 +180,27 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
 
     const filesToProcess = files.slice(0, remainingSlots);
 
-    filesToProcess.forEach(file => {
-      // Check size (200KB)
-      if (file.size > 200 * 1024) {
-        alert(`Image "${file.name}" is too large! Max size is 200KB. Please compress it before uploading.`);
-        return;
+    for (const file of filesToProcess) {
+      // Check original size (Max 10MB to avoid browser crash)
+      if (file.size > 10 * 1024 * 1024) {
+        alert(`Image "${file.name}" is too large (>10MB). Please resize manually.`);
+        continue;
       }
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData(prev => ({
-          ...prev,
-          house_image: [...(prev.house_image || []), reader.result]
-        }));
-        // Store the raw file for FormData submission
-        setImageFiles(prev => [...prev, file]);
-      };
-      reader.readAsDataURL(file);
-    });
+      const compressedDataUrl = await compressImage(file);
+      
+      setFormData(prev => ({
+        ...prev,
+        house_image: [...(prev.house_image || []), compressedDataUrl]
+      }));
+
+      // Convert dataURL back to File for FormData submission if needed
+      // (Actually, the current backend handling in admin expects these to be sent differently,
+      // but keeping it consistent with the existing imageFiles state for now)
+      const blob = await (await fetch(compressedDataUrl)).blob();
+      const compressedFile = new File([blob], file.name, { type: 'image/jpeg' });
+      setImageFiles(prev => [...prev, compressedFile]);
+    }
   };
 
   const handleRemoveImage = (index) => {
