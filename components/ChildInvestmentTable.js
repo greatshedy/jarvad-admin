@@ -1,15 +1,18 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 
 const ChildInvestmentTable = ({ investments, onEdit, onDelete, onChangeStatus }) => {
-  
+  const [searchTerm, setSearchTerm] = useState('');
+  const [planFilter, setPlanFilter] = useState('ALL');
+  const [ageFilter, setAgeFilter] = useState('');
+
   const calculateAge = (dobString) => {
-    if (!dobString) return 'N/A';
+    if (!dobString) return 0;
     try {
       // Expected format: "17--Apr--2021" or "DD--Mon--YYYY"
       const parts = dobString.split('--');
-      if (parts.length !== 3) return 'N/A';
+      if (parts.length !== 3) return 0;
       
       const day = parseInt(parts[0]);
       const monthStr = parts[1];
@@ -29,8 +32,7 @@ const ChildInvestmentTable = ({ investments, onEdit, onDelete, onChangeStatus })
       }
       return age;
     } catch (e) {
-      console.error("Age calculation error:", e);
-      return 'N/A';
+      return 0;
     }
   };
 
@@ -42,13 +44,63 @@ const ChildInvestmentTable = ({ investments, onEdit, onDelete, onChangeStatus })
     }).format(amount);
   };
 
+  // Unique plans for filter dropdown
+  const planTypes = ['ALL', ...new Set(investments.map(item => item.plan_type || 'Savings'))];
+
+  const filteredInvestments = investments.filter(item => {
+    const age = calculateAge(item.child_dob);
+    const matchesName = item.child_name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesPlan = planFilter === 'ALL' || (item.plan_type || 'Savings') === planFilter;
+    const matchesAge = ageFilter === '' || age.toString() === ageFilter;
+    
+    return matchesName && matchesPlan && matchesAge;
+  });
+
   return (
     <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-zinc-100 dark:border-zinc-800 overflow-hidden">
-      <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
-        <h3 className="text-xl font-bold text-zinc-900 dark:text-white">Active Child Investments</h3>
-        <span className="text-xs font-bold px-3 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 rounded-lg">
-          {investments.length} Active Plans
-        </span>
+      <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h3 className="text-xl font-bold text-zinc-900 dark:text-white">Active Child Investments</h3>
+          <p className="text-xs text-zinc-500 mt-1">{filteredInvestments.length} matching plans found</p>
+        </div>
+        
+        {/* FILTERS */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative">
+            <input 
+              type="text" 
+              placeholder="Filter by name..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-4 pr-10 py-2 text-xs border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-zinc-900 dark:text-white min-w-[180px]"
+            />
+          </div>
+          
+          <select 
+            value={planFilter}
+            onChange={(e) => setPlanFilter(e.target.value)}
+            className="px-4 py-2 text-xs border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 rounded-xl outline-none text-zinc-900 dark:text-white"
+          >
+            {planTypes.map(p => <option key={p} value={p}>{p === 'ALL' ? 'All Plans' : p}</option>)}
+          </select>
+
+          <input 
+            type="number" 
+            placeholder="Age" 
+            value={ageFilter}
+            onChange={(e) => setAgeFilter(e.target.value)}
+            className="w-16 px-3 py-2 text-xs border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 rounded-xl outline-none text-zinc-900 dark:text-white"
+          />
+
+          {(searchTerm || planFilter !== 'ALL' || ageFilter) && (
+            <button 
+              onClick={() => { setSearchTerm(''); setPlanFilter('ALL'); setAgeFilter(''); }}
+              className="text-xs font-bold text-rose-500 hover:text-rose-600 transition-all px-2"
+            >
+              Clear
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="overflow-x-auto thin-scrollbar">
@@ -65,7 +117,7 @@ const ChildInvestmentTable = ({ investments, onEdit, onDelete, onChangeStatus })
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-            {investments.map((item) => {
+            {filteredInvestments.map((item) => {
               const amountPaid = (item.monthly_amount || 0) * (item.months_paid || 0);
               const totalAmount = (item.monthly_amount || 0) * (item.total_months || 0);
               const amountRemaining = totalAmount - amountPaid;
@@ -77,7 +129,7 @@ const ChildInvestmentTable = ({ investments, onEdit, onDelete, onChangeStatus })
                     <p className="text-sm font-bold text-zinc-900 dark:text-white">{item.child_name}</p>
                   </td>
                   <td className="p-4">
-                    <p className="text-sm font-medium text-zinc-900 dark:text-white">JardKidz Savings</p>
+                    <p className="text-sm font-medium text-zinc-900 dark:text-white">{item.plan_type || 'Savings'}</p>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">{age} Years Old</p>
                   </td>
                   <td className="p-4">
@@ -135,6 +187,13 @@ const ChildInvestmentTable = ({ investments, onEdit, onDelete, onChangeStatus })
                 </tr>
               );
             })}
+            {filteredInvestments.length === 0 && (
+              <tr>
+                <td colSpan="7" className="p-12 text-center text-zinc-500 dark:text-zinc-400 italic font-medium">
+                  No matching investment plans found. Try adjusting your filters.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

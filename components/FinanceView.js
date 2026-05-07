@@ -11,6 +11,7 @@ const FinanceView = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState(''); // New search state
   const [processingId, setProcessingId] = useState(null);
   const [proofUrl, setProofUrl] = useState(null);
   
@@ -62,17 +63,12 @@ const FinanceView = () => {
     setProcessingId(txRef);
     try {
       let endpoint = '';
-      let method = 'post';
 
       if (action === 'approve') endpoint = `/finance/approve-transaction/${txRef}`;
       else if (action === 'decline') endpoint = `/finance/decline-transaction/${txRef}`;
       else if (action === 'processing') endpoint = `/finance/processing-transaction/${txRef}`;
-      else if (action === 'delete') {
-        endpoint = `/finance/delete-transaction/${txRef}`;
-        method = 'delete';
-      }
 
-      const response = await api[method](endpoint);
+      const response = await api.post(endpoint);
       if (response.data.status === 200) {
         await fetchData(currentPage);
       } else {
@@ -105,8 +101,17 @@ const FinanceView = () => {
   };
 
   const filteredTransactions = transactions.filter(tx => {
-    if (filter === 'ALL') return true;
-    return tx.status === filter;
+    // Status Filter
+    const matchesStatus = filter === 'ALL' || tx.status === filter;
+    
+    // Search Filter (Name or Transaction ID)
+    const query = searchQuery.toLowerCase();
+    const matchesSearch = searchQuery === '' || 
+      tx.user_name?.toLowerCase().includes(query) || 
+      tx.tx_ref?.toLowerCase().includes(query) ||
+      tx.user_email?.toLowerCase().includes(query);
+    
+    return matchesStatus && matchesSearch;
   });
 
   if (isLoading) return <Loader message="Loading Financial Data..." />;
@@ -181,22 +186,48 @@ const FinanceView = () => {
 
       {/* Transactions Table */}
       <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-zinc-100 dark:border-zinc-800 overflow-hidden mb-10">
-        <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
           <h3 className="text-xl font-bold text-zinc-900 dark:text-white">Recent Transactions</h3>
-          <div className="flex items-center gap-2 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl overflow-x-auto thin-scrollbar">
-            {['ALL', 'SUCCESS', 'PENDING', 'PROCESSING', 'FAILED'].map((s) => (
-              <button
-                key={s}
-                onClick={() => setFilter(s)}
-                className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all whitespace-nowrap ${
-                  filter === s 
-                    ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm' 
-                    : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
-                }`}
-              >
-                {s}
-              </button>
-            ))}
+          
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            {/* SEARCH FILTER */}
+            <div className="relative w-full sm:w-64">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+              </div>
+              <input 
+                type="text" 
+                placeholder="Search name or ID..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 text-xs font-medium border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-zinc-900 dark:text-white transition-all"
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-400 hover:text-rose-500"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+              )}
+            </div>
+
+            {/* STATUS FILTER */}
+            <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl overflow-x-auto thin-scrollbar w-full sm:w-auto">
+              {['ALL', 'SUCCESS', 'PENDING', 'PROCESSING', 'FAILED'].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setFilter(s)}
+                  className={`px-4 py-1.5 text-[10px] font-bold rounded-lg transition-all whitespace-nowrap ${
+                    filter === s 
+                      ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm' 
+                      : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -290,18 +321,17 @@ const FinanceView = () => {
                           </button>
                         </>
                       )}
-
-                      <button
-                        disabled={processingId === tx.tx_ref}
-                        onClick={() => handleAction(tx.tx_ref, 'delete')}
-                        className="p-1.5 text-zinc-400 hover:text-rose-600 transition-all rounded-lg"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                      </button>
                     </div>
                   </td>
                 </tr>
               ))}
+              {filteredTransactions.length === 0 && (
+                <tr>
+                  <td colSpan="6" className="p-20 text-center text-zinc-500 dark:text-zinc-400 italic font-medium">
+                    No transactions match your current search or filters.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -309,7 +339,7 @@ const FinanceView = () => {
         {/* Pagination Footer */}
         <div className="p-6 border-t border-zinc-100 dark:border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-4 bg-zinc-50/50 dark:bg-zinc-800/30">
           <p className="text-xs font-bold text-zinc-500 dark:text-zinc-400">
-            Showing <span className="text-zinc-900 dark:text-white">{transactions.length}</span> of <span className="text-zinc-900 dark:text-white">{pagination.total_count}</span> transactions
+            Showing <span className="text-zinc-900 dark:text-white">{filteredTransactions.length}</span> of <span className="text-zinc-900 dark:text-white">{pagination.total_count}</span> transactions
           </p>
           <div className="flex items-center gap-1">
             <button
@@ -348,7 +378,7 @@ const FinanceView = () => {
           <p className="text-zinc-500 text-sm text-center italic">Verify the details on this receipt before approving the transaction.</p>
           <button 
             onClick={() => setProofUrl(null)}
-            className="px-10 py-4 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-bold rounded-2xl"
+            className="px-10 py-4 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-bold rounded-2xl transition-all active:scale-95 shadow-xl"
           >
             Close Preview
           </button>
