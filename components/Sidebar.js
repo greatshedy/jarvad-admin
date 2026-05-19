@@ -1,10 +1,33 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigation } from '@/context/NavigationContext';
 
 const Sidebar = ({ isOpen, onClose }) => {
   const { activeView, setActiveView } = useNavigation();
+  const [adminUser, setAdminUser] = useState({
+    name: 'Admin User',
+    email: 'admin@jarvad.com',
+    picture: ''
+  });
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('admin_user');
+      if (stored) {
+        setAdminUser(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error("Failed to load user details in sidebar:", e);
+    }
+  }, []);
+
+  const handleLogout = () => {
+    if (confirm("Are you sure you want to log out of the admin panel?")) {
+      localStorage.clear();
+      window.location.href = '/';
+    }
+  };
 
   const navItems = [
     { name: 'Dashboard', icon: 'dashboard', view: 'dashboard' },
@@ -15,6 +38,15 @@ const Sidebar = ({ isOpen, onClose }) => {
       subItems: [
         { name: 'Estate', view: 'estates' },
         { name: 'Child Investment', view: 'child-investments' }
+      ]
+    },
+    { 
+      name: 'Shop', 
+      icon: 'shopping-bag', 
+      isGroup: true,
+      subItems: [
+        { name: 'Products', view: 'jardproc' },
+        { name: 'Orders', view: 'jardproc-orders' }
       ]
     },
     { name: 'Partners', icon: 'users', view: 'partners' },
@@ -71,6 +103,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                         <div className={`transition-colors ${item.subItems.some(sub => sub.view === activeView) ? 'text-indigo-600' : 'text-zinc-400 group-hover:text-indigo-500'}`}>
                           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             {item.icon === 'home' && <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>}
+                            {item.icon === 'shopping-bag' && <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>}
                           </svg>
                         </div>
                         <span>{item.name}</span>
@@ -141,12 +174,27 @@ const Sidebar = ({ isOpen, onClose }) => {
           {/* User Section */}
           <div className="p-8 border-t border-zinc-100 dark:border-zinc-800">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-zinc-200 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700"></div>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-zinc-900 dark:text-white">Admin User</p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">admin@jarvad.com</p>
+              {adminUser.picture ? (
+                <img 
+                  src={adminUser.picture} 
+                  alt={adminUser.name}
+                  className="w-12 h-12 rounded-2xl object-cover border border-zinc-300 dark:border-zinc-700 shadow-md"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white font-bold text-lg shadow-md">
+                  {adminUser.name.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-zinc-900 dark:text-white truncate">{adminUser.name}</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{adminUser.email}</p>
               </div>
-              <button className="text-zinc-400 hover:text-rose-500 transition-colors">
+              <button 
+                onClick={handleLogout}
+                className="text-zinc-400 hover:text-rose-500 transition-colors p-2 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl"
+                title="Sign Out"
+              >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-6 0v-1m6-10V7a3 3 0 00-6 0v1"></path></svg>
               </button>
             </div>

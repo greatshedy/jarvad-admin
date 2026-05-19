@@ -1,11 +1,45 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import { NavigationProvider } from '@/context/NavigationContext';
+import Loader from '@/components/Loader';
 
 export default function DashboardLayout({ children }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const adminEmail = 'jarvadgroup.business@gmail.com';
+
+  useEffect(() => {
+    const checkAuth = () => {
+      try {
+        const storedUser = localStorage.getItem('admin_user');
+        const storedToken = localStorage.getItem('admin_token');
+
+        if (!storedUser || !storedToken) {
+          throw new Error("No session found");
+        }
+
+        const parsedUser = JSON.parse(storedUser);
+        if (parsedUser.email.toLowerCase() !== adminEmail.toLowerCase()) {
+          throw new Error("Unauthorized email");
+        }
+
+        // Session valid
+        setIsLoading(false);
+      } catch (err) {
+        console.warn("Unauthorized access attempt redirected to login:", err.message);
+        localStorage.clear();
+        window.location.href = '/';
+      }
+    };
+
+    checkAuth();
+  }, []);
+
+  if (isLoading) {
+    return <Loader fullPage message="Verifying administrative session..." />;
+  }
 
   return (
     <NavigationProvider>
