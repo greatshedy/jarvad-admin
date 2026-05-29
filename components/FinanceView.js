@@ -339,9 +339,16 @@ const FinanceView = () => {
         {/* Pagination Footer */}
         <div className="p-6 border-t border-zinc-100 dark:border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-4 bg-zinc-50/50 dark:bg-zinc-800/30">
           <p className="text-xs font-bold text-zinc-500 dark:text-zinc-400">
-            Showing <span className="text-zinc-900 dark:text-white">{filteredTransactions.length}</span> of <span className="text-zinc-900 dark:text-white">{pagination.total_count}</span> transactions
+            Showing <span className="text-zinc-900 dark:text-white">{Math.min((currentPage - 1) * pagination.page_size + 1, pagination.total_count)}-{Math.min((currentPage - 1) * pagination.page_size + filteredTransactions.length, pagination.total_count)}</span> of <span className="text-zinc-900 dark:text-white">{pagination.total_count}</span> transactions
           </p>
           <div className="flex items-center gap-1">
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(1)}
+              className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 transition-all"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path></svg>
+            </button>
             <button
               disabled={currentPage === 1}
               onClick={() => setCurrentPage(prev => prev - 1)}
@@ -355,6 +362,13 @@ const FinanceView = () => {
               className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 transition-all"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
+            </button>
+            <button
+              disabled={currentPage === pagination.total_pages}
+              onClick={() => setCurrentPage(pagination.total_pages)}
+              className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 transition-all"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>
             </button>
           </div>
         </div>
