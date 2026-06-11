@@ -37,6 +37,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       isGroup: true,
       subItems: [
         { name: 'Estate', view: 'estates' },
+        { name: 'Bulk Upload', view: 'bulk-estate-upload' },
         { name: 'Child Investment', view: 'child-investments' }
       ]
     },

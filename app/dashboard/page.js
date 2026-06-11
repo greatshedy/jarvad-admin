@@ -8,6 +8,7 @@ import ManagementTable from '@/components/ManagementTable';
 import ChildInvestmentTable from '@/components/ChildInvestmentTable';
 import EstateForm from '@/components/EstateForm';
 import ChildForm from '@/components/ChildForm';
+import BulkEstateUpload from '@/components/BulkEstateUpload';
 import FinanceView from '@/components/FinanceView';
 import UsersView from '@/components/UsersView';
 import ReportsView from '@/components/ReportsView';
@@ -27,6 +28,7 @@ const DashboardPage = () => {
   const [editingChild, setEditingChild] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
 
   const fetchDashboardStats = async () => {
     try {
@@ -41,6 +43,7 @@ const DashboardPage = () => {
 
   const fetchHouses = async () => {
     try {
+      setFetchError(false);
       console.log("[FETCH] Initializing pull from /get-house...");
       const response = await api.get('/get-house');
       console.log("[FETCH] Response Received:", response);
@@ -52,6 +55,7 @@ const DashboardPage = () => {
       }
     } catch (error) {
       console.error("[FETCH] Error encountered:", error);
+      setFetchError(true);
       if (error.code === 'ECONNABORTED') {
         console.error("[FETCH] Timeout: Request took longer than 60s.");
       }
@@ -102,6 +106,10 @@ const DashboardPage = () => {
       formData.append('house_about', houseData.house_about);
       formData.append('house_location', houseData.house_location);
       formData.append('house_status', houseData.house_status);
+      formData.append('house_type', houseData.house_type);
+      formData.append('house_is_promo', houseData.house_is_promo);
+      formData.append('house_promo_type', houseData.house_promo_type);
+      formData.append('house_promo_value', houseData.house_promo_value);
       formData.append('house_pricing_plan', JSON.stringify(houseData.house_pricing_plan));
       formData.append('house_landmarks', JSON.stringify(houseData.house_landmarks));
       formData.append('house_benefits', JSON.stringify(houseData.house_benefits));
@@ -137,6 +145,10 @@ const DashboardPage = () => {
       formData.append('house_about', houseData.house_about);
       formData.append('house_location', houseData.house_location);
       formData.append('house_status', houseData.house_status);
+      formData.append('house_type', houseData.house_type);
+      formData.append('house_is_promo', houseData.house_is_promo);
+      formData.append('house_promo_type', houseData.house_promo_type);
+      formData.append('house_promo_value', houseData.house_promo_value);
       formData.append('house_pricing_plan', JSON.stringify(houseData.house_pricing_plan));
       formData.append('house_landmarks', JSON.stringify(houseData.house_landmarks));
       formData.append('house_benefits', JSON.stringify(houseData.house_benefits));
@@ -246,8 +258,8 @@ const DashboardPage = () => {
     return <Loader fullPage message="Connecting to Backend..." />;
   }
 
-  // Handle case where fetch completes but no data is returned
-  if (!isFetching && houses.length === 0) {
+  // Handle case where fetch errored (connection timeout)
+  if (!isFetching && fetchError) {
     return (
       <div className="fixed inset-0 bg-white dark:bg-zinc-950 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">
         <div className="w-20 h-20 bg-red-50 dark:bg-red-500/10 rounded-full flex items-center justify-center mb-6">
@@ -260,6 +272,7 @@ const DashboardPage = () => {
         <button 
           onClick={() => {
             setIsFetching(true);
+            setFetchError(false);
             fetchHouses();
           }}
           className="px-8 py-3 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-lg shadow-indigo-600/20"
@@ -411,6 +424,11 @@ const DashboardPage = () => {
             </div>
           )}
         </div>
+      )}
+
+      {/* Bulk Estate Upload */}
+      {activeView === 'bulk-estate-upload' && (
+        <BulkEstateUpload />
       )}
 
       {/* Placeholder for other views */}

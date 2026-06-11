@@ -12,6 +12,10 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
     house_image: [],
     house_pricing_plan: [],
     house_status: '',
+    house_type: '',
+    house_is_promo: false,
+    house_promo_type: '',
+    house_promo_value: 0,
   };
 
   const [formData, setFormData] = useState({
@@ -342,6 +346,25 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
               required
             />
           </div>
+
+          {/* House Type */}
+          <div className="space-y-2">
+            <label htmlFor="house_type" className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+              House Type
+            </label>
+            <select
+              id="house_type"
+              name="house_type"
+              value={formData.house_type}
+              onChange={handleChange}
+              className="w-full px-4 py-2 sm:py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all dark:text-white text-sm sm:text-base"
+            >
+              <option value="" disabled className="text-zinc-400">Select house type</option>
+              <option value="residential">Residential</option>
+              <option value="residential-commercial">Residential-Commercial</option>
+              <option value="full commercial">Full Commercial</option>
+            </select>
+          </div>
         </div>
 
         {/* Estate Pics (Images) */}
@@ -492,6 +515,55 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
               className="flex-1 min-w-[150px] bg-transparent outline-none text-sm text-zinc-900 dark:text-white py-1"
             />
           </div>
+        </div>
+
+        {/* Promo Section */}
+        <div className="pt-6 border-t border-zinc-200 dark:border-zinc-800">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-white">Promotion</h3>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.house_is_promo}
+                onChange={(e) => setFormData(prev => ({ ...prev, house_is_promo: e.target.checked }))}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-zinc-600 peer-checked:bg-indigo-600"></div>
+              <span className="ms-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                {formData.house_is_promo ? 'Active' : 'Inactive'}
+              </span>
+            </label>
+          </div>
+          {formData.house_is_promo && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-800 rounded-2xl">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Promo Type</label>
+                <select
+                  name="house_promo_type"
+                  value={formData.house_promo_type}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 sm:py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all dark:text-white text-sm sm:text-base"
+                >
+                  <option value="" disabled>Select promo type</option>
+                  <option value="percentage">Percentage Discount</option>
+                  <option value="fixed">Fixed Price</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                  {formData.house_promo_type === 'percentage' ? 'Discount Percentage (%)' : 'Promo Price (₦)'}
+                </label>
+                <input
+                  type="number"
+                  name="house_promo_value"
+                  value={formData.house_promo_value}
+                  onChange={handleChange}
+                  placeholder={formData.house_promo_type === 'percentage' ? 'e.g. 20' : 'e.g. 4000000'}
+                  className="w-full px-4 py-2 sm:py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all dark:text-white text-sm sm:text-base"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Pricing Plans Section */}
