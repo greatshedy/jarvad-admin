@@ -4,10 +4,21 @@ import React, { useState, useEffect } from 'react';
 import { api } from '@/api';
 import Loader from './Loader';
 
+
+
 const ReportsView = () => {
+  const [activeTab, setActiveTab] = useState('intelligence');
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-
+  const [userReports, setUserReports] = useState([]);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [showWarningModal, setShowWarningModal] = useState(false);
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [warningMessage, setWarningMessage] = useState('');
+  const [sendingWarning, setSendingWarning] = useState(false);
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [blockReason, setBlockReason] = useState('');
+  const [blockingUser, setBlockingUser] = useState(false);
   const fetchReports = async () => {
     try {
       setIsLoading(true);
@@ -22,9 +33,105 @@ const ReportsView = () => {
     }
   };
 
+  const fetchUserReports = async () => {
+    try {
+      setReportsLoading(true);
+      const response = await api.get('/reports');
+      if (response.data.status === 200) {
+        setUserReports(response.data.data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching user reports:", error);
+    } finally {
+      setReportsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchReports();
+    fetchUserReports();
   }, []);
+
+  const handleResolveReport = async (reportId, action) => {
+    try {
+      const response = await api.post(`/resolve-report/${reportId}`, { action });
+      if (response.data.status === 200) {
+        setUserReports(prev => prev.map(r =>
+          r._id === reportId ? { ...r, status: action } : r
+        ));
+      }
+    } catch (error) {
+      console.error("Error resolving report:", error);
+    }
+  };
+
+  const handleSendWarning = async () => {
+    if (!selectedReport || !warningMessage.trim()) return;
+    try {
+      setSendingWarning(true);
+      const response = await api.post('/send-warning', {
+        user_id: selectedReport.vendor_id,
+        message: warningMessage.trim(),
+      });
+      if (response.data.status === 200) {
+        alert('Warning sent successfully');
+        setShowWarningModal(false);
+        setWarningMessage('');
+        setSelectedReport(null);
+      }
+    } catch (error) {
+      console.error("Error sending warning:", error);
+      alert('Failed to send warning');
+    } finally {
+      setSendingWarning(false);
+    }
+  };
+
+  const handleBlockUser = async () => {
+    if (!selectedReport || !blockReason.trim()) return;
+    try {
+      setBlockingUser(true);
+      const response = await api.patch(`/toggle-user-block/${selectedReport.vendor_id}`, {
+        status: 'Blocked',
+        reason: blockReason.trim(),
+      });
+      if (response.data.status === 200) {
+        alert('User blocked successfully');
+        setShowBlockModal(false);
+        setBlockReason('');
+        setSelectedReport(null);
+        handleResolveReport(selectedReport._id, 'resolved');
+      }
+    } catch (error) {
+      console.error("Error blocking user:", error);
+      alert('Failed to block user');
+    } finally {
+      setBlockingUser(false);
+    }
+  };
+
+  const handleUnblockUser = async (vendorId, reportId) => {
+    try {
+      const response = await api.patch(`/toggle-user-block/${vendorId}`, {
+        status: 'Active',
+      });
+      if (response.data.status === 200) {
+        alert('User unblocked successfully');
+      }
+    } catch (error) {
+      console.error("Error unblocking user:", error);
+      alert('Failed to unblock user');
+    }
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    try {
+      return new Date(dateStr).toLocaleDateString('en-GB', {
+        day: '2-digit', month: 'short', year: 'numeric'
+      });
+    } catch { return dateStr; }
+  };
 
   if (isLoading) return <Loader message="Generating Intelligence Reports..." />;
   if (!data) return <div className="p-10 text-center">Failed to load reports.</div>;
@@ -32,21 +139,32 @@ const ReportsView = () => {
   const formatCurrency = (val) => new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(val);
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-700">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-white">Intelligence Reports</h2>
-          <p className="text-zinc-500 dark:text-zinc-400 mt-1">Advanced data aggregations and business performance insights.</p>
-        </div>
-        <button 
-          onClick={fetchReports}
-          className="px-6 py-3 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-bold rounded-2xl hover:opacity-90 transition-all flex items-center gap-2"
+    <div className="space-y-6 animate-in fade-in duration-700">
+      {/* Tab Navigation */}
+      <div className="flex gap-4 border-b border-zinc-200 dark:border-zinc-700 pb-2">
+        <button
+          onClick={() => setActiveTab('intelligence')}
+          className={`px-4 py-2 font-bold text-sm rounded-t-lg transition-all ${
+            activeTab === 'intelligence'
+              ? 'bg-indigo-600 text-white'
+              : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+          }`}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-          Refresh Data
+          Intelligence Reports
+        </button>
+        <button
+          onClick={() => { setActiveTab('users'); fetchUserReports(); }}
+          className={`px-4 py-2 font-bold text-sm rounded-t-lg transition-all ${
+            activeTab === 'users'
+              ? 'bg-indigo-600 text-white'
+              : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+          }`}
+        >
+          User Reports {userReports.length > 0 && `(${userReports.length})`}
         </button>
       </div>
+
+      {activeTab === 'intelligence' ? (<>
 
       {/* Summary Highlights */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -199,6 +317,188 @@ const ReportsView = () => {
           </table>
         </div>
       </div>
+      </>) : null}
+
+      {activeTab === 'users' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-extrabold text-zinc-900 dark:text-white">User Reports</h2>
+            <div className="flex gap-2">
+              <button
+                onClick={fetchUserReports}
+                className="px-4 py-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-bold rounded-xl text-sm hover:opacity-90 transition-all"
+              >
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          {reportsLoading ? (
+            <Loader message="Loading reports..." />
+          ) : userReports.length === 0 ? (
+            <div className="text-center py-20 text-zinc-500 dark:text-zinc-400">
+              <svg className="w-16 h-16 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <p className="font-bold text-lg">No reports yet</p>
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-zinc-900 rounded-[2.5rem] border border-zinc-100 dark:border-zinc-800 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-zinc-50 dark:bg-zinc-800/30">
+                      <th className="p-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Reporter</th>
+                      <th className="p-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Vendor ID</th>
+                      <th className="p-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Reason</th>
+                      <th className="p-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Details</th>
+                      <th className="p-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Date</th>
+                      <th className="p-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Status</th>
+                      <th className="p-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                    {userReports.map((report) => (
+                      <tr key={report._id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20 transition-all">
+                        <td className="p-4">
+                          <div className="font-bold text-zinc-900 dark:text-white">{report.reporter?.name || 'Unknown'}</div>
+                          {report.reporter?.email && (
+                            <div className="text-xs text-zinc-500">{report.reporter.email}</div>
+                          )}
+                        </td>
+                        <td className="p-4 text-sm text-zinc-600 dark:text-zinc-400 font-mono">{report.vendor_id?.slice(0, 12)}...</td>
+                        <td className="p-4">
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                            {report.reason}
+                          </span>
+                        </td>
+                        <td className="p-4 text-sm text-zinc-600 dark:text-zinc-400 max-w-[200px] truncate">
+                          {report.custom_reason || '-'}
+                        </td>
+                        <td className="p-4 text-sm text-zinc-500">{formatDate(report.created_at)}</td>
+                        <td className="p-4">
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                            report.status === 'pending'
+                              ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                              : report.status === 'resolved'
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                              : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'
+                          }`}>
+                            {report.status}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          <div className="flex gap-2">
+                            {report.status === 'pending' && (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setSelectedReport(report);
+                                    setWarningMessage('');
+                                    setShowWarningModal(true);
+                                  }}
+                                  className="px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600 transition-all"
+                                >
+                                  Warn
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setSelectedReport(report);
+                                    setBlockReason('');
+                                    setShowBlockModal(true);
+                                  }}
+                                  className="px-3 py-1.5 bg-red-500 text-white text-xs font-bold rounded-lg hover:bg-red-600 transition-all"
+                                >
+                                  Block
+                                </button>
+                                <button
+                                  onClick={() => handleResolveReport(report._id, 'dismissed')}
+                                  className="px-3 py-1.5 bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 text-xs font-bold rounded-lg hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-all"
+                                >
+                                  Dismiss
+                                </button>
+                              </>
+                            )}
+                            <button
+                              onClick={() => handleUnblockUser(report.vendor_id, report._id)}
+                              className="px-3 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-lg hover:bg-emerald-600 transition-all"
+                            >
+                              Unblock
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Send Warning Modal */}
+      {showWarningModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 w-full max-w-md shadow-xl">
+            <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-4">Send Warning</h3>
+            <textarea
+              value={warningMessage}
+              onChange={(e) => setWarningMessage(e.target.value)}
+              placeholder="Enter warning message..."
+              rows={4}
+              className="w-full border border-zinc-200 dark:border-zinc-700 rounded-xl p-3 text-sm bg-transparent text-zinc-900 dark:text-white mb-4"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowWarningModal(false)}
+                className="flex-1 py-3 bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-bold rounded-xl text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSendWarning}
+                disabled={sendingWarning || !warningMessage.trim()}
+                className="flex-1 py-3 bg-amber-500 text-white font-bold rounded-xl text-sm disabled:opacity-50"
+              >
+                {sendingWarning ? 'Sending...' : 'Send'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Block User Modal */}
+      {showBlockModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 w-full max-w-md shadow-xl">
+            <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-4">Block User</h3>
+            <p className="text-sm text-zinc-500 mb-4">This will restrict the user from accessing the app.</p>
+            <textarea
+              value={blockReason}
+              onChange={(e) => setBlockReason(e.target.value)}
+              placeholder="Reason for blocking..."
+              rows={3}
+              className="w-full border border-zinc-200 dark:border-zinc-700 rounded-xl p-3 text-sm bg-transparent text-zinc-900 dark:text-white mb-4"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowBlockModal(false)}
+                className="flex-1 py-3 bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-bold rounded-xl text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBlockUser}
+                disabled={blockingUser || !blockReason.trim()}
+                className="flex-1 py-3 bg-red-500 text-white font-bold rounded-xl text-sm disabled:opacity-50"
+              >
+                {blockingUser ? 'Blocking...' : 'Block User'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
