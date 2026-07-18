@@ -8,7 +8,7 @@ import Loader from '@/components/Loader';
 export default function DashboardLayout({ children }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const adminEmail = 'jarvadgroup.business@gmail.com';
+  const adminEmails = (typeof window !== 'undefined' ? (process.env.NEXT_PUBLIC_ADMIN_EMAILS || 'jarvadgroup.business@gmail.com').split(',').map(e => e.trim().toLowerCase()) : ['jarvadgroup.business@gmail.com']);
 
   useEffect(() => {
     const checkAuth = () => {
@@ -21,7 +21,7 @@ export default function DashboardLayout({ children }) {
         }
 
         const parsedUser = JSON.parse(storedUser);
-        if (parsedUser.email.toLowerCase() !== adminEmail.toLowerCase()) {
+        if (!adminEmails.includes(parsedUser.email.toLowerCase())) {
           throw new Error("Unauthorized email");
         }
 

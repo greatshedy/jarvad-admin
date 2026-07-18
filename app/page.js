@@ -25,7 +25,7 @@ export default function Home() {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
-  const [adminEmail, setAdminEmail] = useState('jarvadgroup.business@gmail.com');
+  const adminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || 'jarvadgroup.business@gmail.com').split(',').map(e => e.trim().toLowerCase());
 
   useEffect(() => {
     // Check if session has expired from query string
@@ -42,7 +42,7 @@ export default function Home() {
     if (storedUser && storedToken) {
       try {
         const parsed = JSON.parse(storedUser);
-        if (parsed.email === adminEmail) {
+        if (adminEmails.includes(parsed.email)) {
           window.location.href = '/dashboard';
         }
       } catch (e) {
@@ -73,7 +73,7 @@ export default function Home() {
       const picture = idInfo.picture || '';
 
       // 2. Strict client-side check for authorized admin email
-      if (email.toLowerCase() !== adminEmail.toLowerCase()) {
+      if (!adminEmails.includes(email.toLowerCase())) {
         setIsVerifying(false);
         setErrorMsg("Access Denied: You do not have administrator privileges for this portal.");
         return;
