@@ -5,7 +5,7 @@ import React, { createContext, useContext, useState } from 'react';
 const NavigationContext = createContext();
 
 export const NavigationProvider = ({ children }) => {
-  const [activeView, setActiveView] = useState('dashboard'); // 'dashboard', 'estates', 'partners', 'users', 'finance', 'reports', 'settings', 'jardproc', 'jardproc-orders'
+  const [activeView, setActiveView] = useState('dashboard'); // 'dashboard', 'estates', 'partners', 'users', 'finance', 'withdrawals', 'reports', 'settings', 'jardproc', 'jardproc-orders'
 
   return (
     <NavigationContext.Provider value={{ activeView, setActiveView }}>

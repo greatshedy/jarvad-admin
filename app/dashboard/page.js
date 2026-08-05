@@ -10,6 +10,7 @@ import EstateForm from '@/components/EstateForm';
 import ChildForm from '@/components/ChildForm';
 import BulkEstateUpload from '@/components/BulkEstateUpload';
 import FinanceView from '@/components/FinanceView';
+import WithdrawalsView from '@/components/WithdrawalsView';
 import UsersView from '@/components/UsersView';
 import ReportsView from '@/components/ReportsView';
 import JardProcProducts from '@/components/JardProcProducts';
@@ -375,6 +376,11 @@ const DashboardPage = () => {
       {/* Finance View */}
       {activeView === 'finance' && (
         <FinanceView />
+      )}
+
+      {/* Withdraw Requests View */}
+      {activeView === 'withdrawals' && (
+        <WithdrawalsView />
       )}
 
       {/* Partners Management */}
