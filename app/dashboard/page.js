@@ -12,6 +12,7 @@ import BulkEstateUpload from '@/components/BulkEstateUpload';
 import FinanceView from '@/components/FinanceView';
 import WithdrawalsView from '@/components/WithdrawalsView';
 import UsersView from '@/components/UsersView';
+import DeletionRequestsView from '@/components/DeletionRequestsView';
 import ReportsView from '@/components/ReportsView';
 import JardProcProducts from '@/components/JardProcProducts';
 import JardProcOrders from '@/components/JardProcOrders';
@@ -391,6 +392,11 @@ const DashboardPage = () => {
       {/* Users Management */}
       {activeView === 'users' && (
         <UsersView />
+      )}
+
+      {/* Account Deletion Requests */}
+      {activeView === 'deletion-requests' && (
+        <DeletionRequestsView />
       )}
 
       {/* Reports & Intelligence */}
