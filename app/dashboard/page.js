@@ -17,6 +17,7 @@ import ReportsView from '@/components/ReportsView';
 import JardProcProducts from '@/components/JardProcProducts';
 import JardProcOrders from '@/components/JardProcOrders';
 import PartnersView from '@/components/PartnersView';
+import SettingsView from '@/components/SettingsView';
 import Modal from '@/components/Modal';
 import Loader from '@/components/Loader';
 import { api } from '@/api';
@@ -404,6 +405,11 @@ const DashboardPage = () => {
         <ReportsView />
       )}
 
+      {/* Subscription Settings */}
+      {activeView === 'settings' && (
+        <SettingsView />
+      )}
+
       {/* JardProc Management */}
       {activeView === 'jardproc' && (
         <JardProcProducts />
@@ -444,7 +450,7 @@ const DashboardPage = () => {
       )}
 
       {/* Placeholder for other views */}
-      {['users', 'reports', 'settings'].includes(activeView) && (
+      {['users', 'reports'].includes(activeView) && (
         <div className="flex flex-col items-center justify-center py-20 text-center animate-in zoom-in-95 duration-500">
           <div className="w-20 h-20 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center mb-6">
             <svg className="w-10 h-10 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

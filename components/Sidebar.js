@@ -56,7 +56,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { name: 'Finance', icon: 'banknotes', view: 'finance' },
     { name: 'Withdrawals', icon: 'withdraw', view: 'withdrawals' },
     { name: 'Reports', icon: 'chart-bar', view: 'reports' },
-    { name: 'Settings', icon: 'cog', view: 'settings' },
+    { name: 'Subscription Settings', icon: 'cog', view: 'settings' },
   ];
 
   const [expandedGroups, setExpandedGroups] = React.useState(['Product']);
