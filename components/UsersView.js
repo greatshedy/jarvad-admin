@@ -12,13 +12,26 @@ const UsersView = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingUser, setEditingUser] = useState(null);
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ total_count: 0, total_pages: 1, current_page: 1, page_size: 20 });
+  const [referralsFor, setReferralsFor] = useState(null);
+  const [referrals, setReferrals] = useState(null);
+  const [isLoadingReferrals, setIsLoadingReferrals] = useState(false);
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (targetPage = page, search = searchTerm, statusVal = statusFilter) => {
     try {
       setIsLoading(true);
-      const response = await api.get('/users');
+      const response = await api.get('/users', {
+        params: {
+          page: targetPage,
+          page_size: pagination.page_size,
+          search: search || '',
+          status: statusVal,
+        },
+      });
       if (response.data.status === 200) {
-        setUsers(response.data.data);
+        setUsers(response.data.data || []);
+        if (response.data.pagination) setPagination(response.data.pagination);
       }
     } catch (error) {
       console.error("Error fetching users:", error);
@@ -28,8 +41,28 @@ const UsersView = () => {
   };
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    const t = setTimeout(() => {
+      fetchUsers(page, searchTerm, statusFilter);
+    }, 250);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, searchTerm, statusFilter]);
+
+  const openReferrals = async (user) => {
+    setReferralsFor(user);
+    setReferrals(null);
+    setIsLoadingReferrals(true);
+    try {
+      const res = await api.get(`/users/${user._id}/referrals`);
+      if (res.data.status === 200) {
+        setReferrals(res.data);
+      }
+    } catch (error) {
+      console.error("Error fetching referrals:", error);
+    } finally {
+      setIsLoadingReferrals(false);
+    }
+  };
 
   const handleUpdateUser = async (e) => {
     e.preventDefault();
@@ -38,7 +71,7 @@ const UsersView = () => {
       const response = await api.put(`/update-user/${editingUser._id}`, editingUser);
       if (response.data.status === 200) {
         setEditingUser(null);
-        await fetchUsers();
+        await fetchUsers(page, searchTerm, statusFilter);
       }
     } catch (error) {
       console.error("Error updating user:", error);
@@ -56,7 +89,7 @@ const UsersView = () => {
       try {
         const response = await api.patch(`/toggle-user-block/${user._id}`, { status: newStatus });
         if (response.data.status === 200) {
-          await fetchUsers();
+          await fetchUsers(page, searchTerm, statusFilter);
         }
       } catch (error) {
         console.error("Error toggling block status:", error);
@@ -69,7 +102,7 @@ const UsersView = () => {
       try {
         const response = await api.delete(`/delete-user/${user._id}`);
         if (response.data.status === 200) {
-          await fetchUsers();
+          await fetchUsers(page, searchTerm, statusFilter);
         }
       } catch (error) {
         console.error("Error deleting user:", error);
@@ -77,17 +110,9 @@ const UsersView = () => {
     }
   };
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = 
-      user.user_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'ALL' || (user.status || 'Active') === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+  const filteredUsers = users;
 
-  if (isLoading) return <Loader message="Loading User Directory..." />;
+  if (isLoading && users.length === 0) return <Loader message="Loading User Directory..." />;
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -102,13 +127,13 @@ const UsersView = () => {
                 type="text"
                 placeholder="Search name or email..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
                 className="pl-10 pr-4 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 transition-all outline-none w-64"
               />
               <svg className="w-4 h-4 absolute left-3.5 top-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
            </div>
            <button 
-            onClick={fetchUsers}
+            onClick={() => fetchUsers(page, searchTerm, statusFilter)}
             className="p-2.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-400 rounded-xl transition-all"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
@@ -122,7 +147,7 @@ const UsersView = () => {
             {['ALL', 'Active', 'Blocked'].map((s) => (
               <button
                 key={s}
-                onClick={() => setStatusFilter(s)}
+                onClick={() => { setStatusFilter(s); setPage(1); }}
                 className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${
                   statusFilter === s 
                     ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm' 
@@ -134,7 +159,7 @@ const UsersView = () => {
             ))}
           </div>
           <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
-            {filteredUsers.length} Users Found
+            {pagination.total_count} Users Found
           </p>
         </div>
 
@@ -176,6 +201,13 @@ const UsersView = () => {
                   </td>
                   <td className="p-4 text-right pr-6">
                     <div className="flex items-center justify-end gap-2 lg:opacity-0 lg:group-hover:opacity-100 transition-all">
+                      <button
+                        onClick={() => openReferrals(user)}
+                        className="p-2 text-zinc-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-xl transition-all"
+                        title="View Referrals"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
+                      </button>
                       <button
                         onClick={() => setEditingUser(user)}
                         className="p-2 text-zinc-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-xl transition-all"
@@ -220,6 +252,74 @@ const UsersView = () => {
           </table>
         </div>
       </div>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between mt-6">
+        <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+          Page {pagination.current_page} of {pagination.total_pages} · {pagination.total_count} total
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={pagination.current_page <= 1}
+            className="px-4 py-2 rounded-xl text-sm font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+          >
+            Previous
+          </button>
+          <button
+            onClick={() => setPage((p) => Math.min(pagination.total_pages, p + 1))}
+            disabled={pagination.current_page >= pagination.total_pages}
+            className="px-4 py-2 rounded-xl text-sm font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+
+      {/* Referrals Modal */}
+      <Modal
+        isOpen={!!referralsFor}
+        onClose={() => { setReferralsFor(null); setReferrals(null); }}
+        title={`Referrals — ${referralsFor?.user_name || 'User'}`}
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-between rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 p-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Referral Earnings</p>
+              <p className="text-xl font-extrabold text-emerald-700 dark:text-emerald-300">
+                ₦{Number(referrals?.earnings || 0).toLocaleString()}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Referred</p>
+              <p className="text-xl font-extrabold text-emerald-700 dark:text-emerald-300">{referrals?.count ?? 0}</p>
+            </div>
+          </div>
+
+          {isLoadingReferrals ? (
+            <div className="py-10 flex justify-center">
+              <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          ) : (referrals?.data?.length ? (
+            <div className="max-h-80 overflow-y-auto thin-scrollbar divide-y divide-zinc-100 dark:divide-zinc-800">
+              {referrals.data.map((r) => (
+                <div key={r._id} className="flex items-center justify-between py-3">
+                  <div>
+                    <p className="text-sm font-bold text-zinc-900 dark:text-white">{r.user_name || 'Unnamed'}</p>
+                    <p className="text-xs text-zinc-500">{r.email}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-emerald-600">₦{Number(r.wallet_balance || 0).toLocaleString()}</p>
+                    <p className="text-[10px] font-bold uppercase text-zinc-400">{r.status || 'Active'}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-sm text-zinc-500 py-8">This user has not referred anyone yet.</p>
+          ))}
+        </div>
+      </Modal>
 
       {/* Edit User Modal */}
       <Modal 

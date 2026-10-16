@@ -32,6 +32,16 @@ const DashboardPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
   const [fetchError, setFetchError] = useState(false);
+  const [focusTx, setFocusTx] = useState('');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const view = params.get('view');
+    const tx = params.get('tx');
+    if (view) setActiveView(view);
+    if (tx) setFocusTx(tx);
+  }, []);
 
   const fetchDashboardStats = async () => {
     try {
@@ -377,7 +387,7 @@ const DashboardPage = () => {
 
       {/* Finance View */}
       {activeView === 'finance' && (
-        <FinanceView />
+        <FinanceView focusTxRef={focusTx} />
       )}
 
       {/* Withdraw Requests View */}

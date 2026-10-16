@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
+import NotificationsSetup from '@/components/NotificationsSetup';
 import { NavigationProvider } from '@/context/NavigationContext';
 import Loader from '@/components/Loader';
 
@@ -43,6 +44,7 @@ export default function DashboardLayout({ children }) {
 
   return (
     <NavigationProvider>
+      <NotificationsSetup />
       <div className="flex min-h-screen bg-zinc-50 dark:bg-zinc-950 transition-colors duration-300">
       {/* Sidebar Component */}
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />

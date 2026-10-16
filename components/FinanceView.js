@@ -5,7 +5,7 @@ import { api } from '@/api';
 import Loader from './Loader';
 import Modal from './Modal';
 
-const FinanceView = () => {
+const FinanceView = ({ focusTxRef = '' } = {}) => {
   const [summary, setSummary] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -28,9 +28,13 @@ const FinanceView = () => {
       setIsLoading(true);
       setError(null);
       
+      const txUrl = focusTxRef
+        ? `/finance/transactions?page=${page}&page_size=15&tx_ref=${encodeURIComponent(focusTxRef)}`
+        : `/finance/transactions?page=${page}&page_size=15`;
+
       const [summaryRes, transactionsRes] = await Promise.all([
         api.get('/finance/summary'),
-        api.get(`/finance/transactions?page=${page}&page_size=15`)
+        api.get(txUrl)
       ]);
 
       if (summaryRes.data.status === 200) {
@@ -38,9 +42,17 @@ const FinanceView = () => {
       }
       
       if (transactionsRes.data.status === 200) {
-        setTransactions(transactionsRes.data.data);
+        const txList = transactionsRes.data.data || [];
+        setTransactions(txList);
         if (transactionsRes.data.pagination) {
           setPagination(transactionsRes.data.pagination);
+        }
+        if (focusTxRef) {
+          setFilter('PENDING');
+          const match = txList.find((t) => t.tx_ref === focusTxRef);
+          if (match && match.proof_url) {
+            setProofUrl(match.proof_url);
+          }
         }
       } else {
         setError(transactionsRes.data.message || "Failed to load transactions.");

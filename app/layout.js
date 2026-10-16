@@ -15,6 +15,7 @@ import Script from "next/script";
 export const metadata = {
   title: "Jarvad Admin Portal",
   description: "Administrative console for managing Jarvad products, services, and transactions.",
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({ children }) {
