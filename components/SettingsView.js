@@ -16,6 +16,7 @@ const SettingsView = () => {
     partner_fee: '',
     sub_duration_months: '',
     penalty_percentage: '',
+    support_whatsapp: '',
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -34,6 +35,7 @@ const SettingsView = () => {
           partner_fee: data.partner_fee ?? '',
           sub_duration_months: data.sub_duration_months ?? '',
           penalty_percentage: data.penalty_percentage ?? '',
+          support_whatsapp: data.support_whatsapp ?? '',
         });
       } else {
         setError(response.data.message || 'Failed to load subscription settings.');
@@ -63,6 +65,8 @@ const SettingsView = () => {
     const partnerFee = Number(form.partner_fee);
     const months = Number(form.sub_duration_months);
     const penalty = Number(form.penalty_percentage);
+    const supportWhatsapp = String(form.support_whatsapp || '').trim();
+    const supportDigits = supportWhatsapp.replace(/\D/g, '');
 
     if (!(vendorFee > 0) || !(partnerFee > 0)) {
       setError('Vendor and Partner fees must be greater than 0.');
@@ -76,6 +80,10 @@ const SettingsView = () => {
       setError('Penalty percentage must be 0 or greater.');
       return;
     }
+    if (!supportDigits) {
+      setError('Support WhatsApp number is required.');
+      return;
+    }
 
     try {
       setIsSaving(true);
@@ -84,6 +92,7 @@ const SettingsView = () => {
         partner_fee: partnerFee,
         sub_duration_months: months,
         penalty_percentage: penalty,
+        support_whatsapp: supportWhatsapp,
       });
       if (response.data.status === 200) {
         const data = response.data.data || {};
@@ -92,6 +101,7 @@ const SettingsView = () => {
           partner_fee: data.partner_fee ?? partnerFee,
           sub_duration_months: data.sub_duration_months ?? months,
           penalty_percentage: data.penalty_percentage ?? penalty,
+          support_whatsapp: data.support_whatsapp ?? supportWhatsapp,
         });
         setNotice('Subscription pricing updated. New fees apply to new registrations, renewals and auto-debits immediately.');
       } else {
@@ -211,6 +221,19 @@ const SettingsView = () => {
               placeholder="5"
               required
             />
+          </div>
+
+          <div>
+            <label className={labelClass}>Support WhatsApp Number</label>
+            <input
+              type="tel"
+              value={form.support_whatsapp}
+              onChange={handleChange('support_whatsapp')}
+              className={inputClass}
+              placeholder="2347085579245"
+              required
+            />
+            <p className="text-xs text-zinc-400 mt-2">Digits only with country code. Used by the in-app support buttons.</p>
           </div>
         </div>
 
