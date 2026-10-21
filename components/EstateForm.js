@@ -2,6 +2,29 @@
 
 import React, { useState } from 'react';
 
+const PROPERTY_TYPE_OPTIONS = [
+  { key: 'residential', label: 'Residential' },
+  { key: 'residential-commercial', label: 'Residential Commercial' },
+  { key: 'full_commercial', label: 'Full Commercial' },
+];
+
+const normalizePropertyTypeKey = (value) => {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, ' ')
+    .replace(/-/g, ' ');
+  if (normalized === 'residential') return 'residential';
+  if (normalized === 'residential commercial') return 'residential-commercial';
+  if (normalized === 'full commercial' || normalized === 'fully commercial' || normalized === 'commercial') {
+    return 'full_commercial';
+  }
+  return normalized.replace(/\s+/g, '-');
+};
+
+const getPropertyTypeLabel = (value) =>
+  PROPERTY_TYPE_OPTIONS.find((item) => item.key === normalizePropertyTypeKey(value))?.label || 'Unassigned';
+
 const EstateForm = ({ onSubmit, onCancel, initialData }) => {
   const defaultState = {
     house_name: '',
@@ -88,6 +111,7 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
   const [benefitInput, setBenefitInput] = useState('');
   const [installmentInput, setInstallmentInput] = useState('');
   const [currentPlan, setCurrentPlan] = useState({
+    propertyType: '',
     unitSqm: '',
     outrightPrice: '',
     percentageIncrease: '',
@@ -119,26 +143,55 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
     }));
   };
 
-  const handlePropertyPriceChange = (key, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      property_type_prices: {
-        ...(prev.property_type_prices || {}),
-        [key]: value,
-      },
-    }));
-  };
-
   const savePlan = () => {
-    if (!currentPlan.unitSqm || !currentPlan.outrightPrice) {
-      alert('Please fill in at least the Unit and Outright Price');
+    const normalizedType = normalizePropertyTypeKey(currentPlan.propertyType);
+    if (!normalizedType || !PROPERTY_TYPE_OPTIONS.some((item) => item.key === normalizedType)) {
+      alert('Please select a property type.');
       return;
     }
-    setFormData((prev) => ({
-      ...prev,
-      house_pricing_plan: [...(prev.house_pricing_plan || []), { ...currentPlan, id: Date.now() }],
-    }));
+    if (!currentPlan.unitSqm || !currentPlan.outrightPrice) {
+      alert('Please fill in at least the unit/SQM and outright price.');
+      return;
+    }
+
+    const plans = formData.house_pricing_plan || [];
+    const sameTypePlan = plans.find(
+      (plan) => normalizePropertyTypeKey(plan.propertyType) === normalizedType
+    );
+
+    if (sameTypePlan && sameTypePlan.id !== currentPlan.id) {
+      const shouldReplace = window.confirm(
+        `A ${getPropertyTypeLabel(normalizedType)} pricing plan already exists for this estate. Do you want to replace it?`
+      );
+      if (!shouldReplace) return;
+    }
+
+    setFormData((prev) => {
+      const previousPlans = prev.house_pricing_plan || [];
+      const planId = sameTypePlan?.id || currentPlan.id || Date.now();
+      const nextPlan = {
+        ...currentPlan,
+        propertyType: normalizedType,
+        price: currentPlan.outrightPrice,
+        id: planId,
+      };
+      const nextPlans = previousPlans.filter(
+        (plan) => plan.id !== planId && normalizePropertyTypeKey(plan.propertyType) !== normalizedType
+      );
+      nextPlans.push(nextPlan);
+      nextPlans.sort(
+        (a, b) =>
+          PROPERTY_TYPE_OPTIONS.findIndex((item) => item.key === normalizePropertyTypeKey(a.propertyType)) -
+          PROPERTY_TYPE_OPTIONS.findIndex((item) => item.key === normalizePropertyTypeKey(b.propertyType))
+      );
+      return {
+        ...prev,
+        house_pricing_plan: nextPlans,
+      };
+    });
+
     setCurrentPlan({
+      propertyType: '',
       unitSqm: '',
       outrightPrice: '',
       percentageIncrease: '',
@@ -147,6 +200,25 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
     });
     setInstallmentInput('');
     setShowPlanForm(false);
+  };
+
+  const editPlan = (plan) => {
+    setCurrentPlan({
+      ...plan,
+      propertyType: normalizePropertyTypeKey(plan.propertyType),
+      unitSqm: plan.unitSqm ?? '',
+      outrightPrice: plan.outrightPrice ?? plan.price ?? '',
+      price: plan.outrightPrice ?? plan.price ?? '',
+      percentageIncrease: plan.percentageIncrease ?? '',
+      downPayment: plan.downPayment ?? '',
+      numInstallments: Array.isArray(plan.numInstallments)
+        ? plan.numInstallments
+        : plan.numInstallments
+        ? [String(plan.numInstallments)]
+        : [],
+    });
+    setInstallmentInput('');
+    setShowPlanForm(true);
   };
 
   const addStandardUnits = () => {
@@ -369,9 +441,30 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
       alert('Please set a price for every non-custom housing option.');
       return;
     }
+    if (formData.land_enabled) {
+      const plans = formData.house_pricing_plan || [];
+      const missingTypes = PROPERTY_TYPE_OPTIONS.filter(
+        (option) =>
+          !plans.some(
+            (plan) =>
+              normalizePropertyTypeKey(plan.propertyType) === option.key &&
+              Number(plan.outrightPrice || plan.price || 0) > 0
+          )
+      );
+      if (missingTypes.length > 0) {
+        alert(
+          `Please add a pricing plan for: ${missingTypes.map((item) => item.label).join(', ')}.`
+        );
+        return;
+      }
+    }
     if (onSubmit) {
       // Clean Handover: Deep clone the formData to ensure it's a completely fresh object
       const finalSubmissionData = JSON.parse(JSON.stringify(formData));
+      finalSubmissionData.house_pricing_plan = (finalSubmissionData.house_pricing_plan || []).map((plan) => ({
+        ...plan,
+        propertyType: normalizePropertyTypeKey(plan.propertyType),
+      }));
       
       // Separate existing URLs from new base64 images
       // (Backend now expects raw Files, but we keep URLs for "no-change" on edit)
@@ -521,30 +614,6 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
               />
             </label>
           </div>
-
-          {formData.land_enabled && (
-            <div className="p-5 rounded-3xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/40 dark:bg-indigo-900/10">
-              <h4 className="font-bold text-zinc-900 dark:text-white mb-4">Land / Estate Pricing</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {[
-                  { key: 'residential', label: 'Residential' },
-                  { key: 'residential-commercial', label: 'Residential Commercial' },
-                  { key: 'full_commercial', label: 'Full Commercial' },
-                ].map((item) => (
-                  <div key={item.key} className="space-y-2">
-                    <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{item.label} (₦)</label>
-                    <input
-                      type="number"
-                      value={formData.property_type_prices?.[item.key] ?? ''}
-                      onChange={(e) => handlePropertyPriceChange(item.key, e.target.value)}
-                      placeholder="e.g. 5000000"
-                      className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           {formData.housing_enabled && (
             <div className="p-5 rounded-3xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-900/10 space-y-5">
@@ -961,7 +1030,18 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
           {!showPlanForm && (
             <button
               type="button"
-              onClick={() => setShowPlanForm(true)}
+              onClick={() => {
+                setCurrentPlan({
+                  propertyType: '',
+                  unitSqm: '',
+                  outrightPrice: '',
+                  percentageIncrease: '',
+                  numInstallments: [],
+                  downPayment: '',
+                });
+                setInstallmentInput('');
+                setShowPlanForm(true);
+              }}
               className="inline-flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-indigo-600/10 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 font-semibold rounded-xl hover:bg-indigo-600 hover:text-white transition-all active:scale-95 border border-indigo-600/20 text-sm sm:text-base"
             >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -972,22 +1052,64 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
             )}
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+            {PROPERTY_TYPE_OPTIONS.map((option) => {
+              const configured = (formData.house_pricing_plan || []).some(
+                (plan) =>
+                  normalizePropertyTypeKey(plan.propertyType) === option.key &&
+                  Number(plan.outrightPrice || plan.price || 0) > 0
+              );
+              return (
+                <div
+                  key={option.key}
+                  className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 ${
+                    configured
+                      ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-900/10'
+                      : 'border-rose-200 dark:border-rose-900/60 bg-rose-50/60 dark:bg-rose-950/20'
+                  }`}
+                >
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wide text-zinc-700 dark:text-zinc-200">{option.label}</p>
+                    <p className={`text-[11px] font-semibold mt-1 ${configured ? 'text-emerald-600' : 'text-rose-500'}`}>
+                      {configured ? 'Pricing configured' : 'Pricing missing'}
+                    </p>
+                  </div>
+                  <span className={`text-sm font-black ${configured ? 'text-emerald-600' : 'text-rose-500'}`}>
+                    {configured ? '✓' : '✕'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
           {/* List of Added Plans */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
             {formData.house_pricing_plan.map((plan) => (
               <div key={plan.id} className="relative p-5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl group transition-all hover:border-indigo-500/50">
-                <button
-                  type="button"
-                  onClick={() => removePlan(plan.id)}
-                  className="absolute top-4 right-4 text-zinc-400 hover:text-red-500 transition-colors"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                  </svg>
-                </button>
-                <div className="space-y-1">
-                  <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">{plan.unitSqm} SQM</p>
-                  <p className="text-lg font-bold text-zinc-900 dark:text-white capitalize">Outright: ₦{Number(plan.outrightPrice).toLocaleString()}</p>
+                <div className="absolute top-4 right-4 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => editPlan(plan)}
+                    className="text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removePlan(plan.id)}
+                    className="text-zinc-400 hover:text-red-500 transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                  </button>
+                </div>
+                <div className="space-y-1 pr-16">
+                  <p className="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+                    {getPropertyTypeLabel(plan.propertyType)}
+                  </p>
+                  <p className="text-sm font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{plan.unitSqm} SQM</p>
+                  <p className="text-lg font-bold text-zinc-900 dark:text-white">Outright: ₦{Number(plan.outrightPrice || plan.price || 0).toLocaleString()}</p>
                 </div>
                 <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700 grid grid-cols-2 gap-4 text-xs">
                   <div>
@@ -1009,6 +1131,23 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
           {showPlanForm && (
             <div className="p-6 bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-800 rounded-3xl animate-in fade-in slide-in-from-top-4 duration-300">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2 col-span-full">
+                  <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Property Type</label>
+                  <select
+                    name="propertyType"
+                    value={currentPlan.propertyType}
+                    onChange={handlePlanChange}
+                    className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
+                  >
+                    <option value="" disabled>Select property type</option>
+                    {PROPERTY_TYPE_OPTIONS.map((item) => (
+                      <option key={item.key} value={item.key}>{item.label}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    Each property type can have one pricing plan. If it already exists, you will be asked to replace it.
+                  </p>
+                </div>
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Plan unit / SQM</label>
                   <input
@@ -1094,7 +1233,18 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowPlanForm(false)}
+                  onClick={() => {
+                    setShowPlanForm(false);
+                    setCurrentPlan({
+                      propertyType: '',
+                      unitSqm: '',
+                      outrightPrice: '',
+                      percentageIncrease: '',
+                      numInstallments: [],
+                      downPayment: '',
+                    });
+                    setInstallmentInput('');
+                  }}
                   className="px-6 py-3 border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 font-bold rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all"
                 >
                   Cancel
