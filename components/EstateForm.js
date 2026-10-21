@@ -968,9 +968,11 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
                     onChange={handleChange}
                     className="w-full px-4 py-2 sm:py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
                   >
-                    <option value="unit_price">Structure / Property Price</option>
+                    <option value="unit_price">All unit prices (Land/Estate + Housing)</option>
+                    <option value="land_estate">Land/Estate property price only</option>
+                    <option value="housing_unit">Housing unit price only</option>
                     <option value="registration_fee">Housing Registration Fee</option>
-                    <option value="both">Both</option>
+                    <option value="both">Everything (all prices + registration fee)</option>
                   </select>
                 </div>
                 <div className="space-y-2">

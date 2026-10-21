@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '@/api';
 import Loader from './Loader';
 import Modal from './Modal';
+import DeleteUserModal from './DeleteUserModal';
 
 const STATUS_META = {
   pending_otp: { label: 'Awaiting OTP', cls: 'bg-zinc-100 dark:bg-zinc-700/40 text-zinc-600 dark:text-zinc-300' },
@@ -20,6 +21,7 @@ const DeletionRequestsView = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [processingId, setProcessingId] = useState(null);
   const [selected, setSelected] = useState(null);
+  const [deletingRequest, setDeletingRequest] = useState(null);
 
   const fetchData = async () => {
     try {
@@ -46,9 +48,15 @@ const DeletionRequestsView = () => {
   const handleAction = async (requestId, action) => {
     const record = requests.find((r) => r.id === requestId);
     const name = record ? (record.user_name || record.user_email) : '';
-    const message = action === 'approve'
-      ? `Approve deletion for ${name}? This will PERMANENTLY delete their account and cannot be undone.`
-      : `Reject the deletion request from ${name}? Their account will stay active.`;
+    if (action === 'approve') {
+      if (!record?.user_id) {
+        alert('This request has no linked user account to preview.');
+        return;
+      }
+      setDeletingRequest(record);
+      return;
+    }
+    const message = `Reject the deletion request from ${name}? Their account will stay active.`;
     if (!confirm(message)) return;
 
     setProcessingId(requestId);
@@ -285,6 +293,42 @@ const DeletionRequestsView = () => {
           </div>
         )}
       </Modal>
+
+      <DeleteUserModal
+        isOpen={Boolean(deletingRequest)}
+        onClose={() => setDeletingRequest(null)}
+        user={
+          deletingRequest
+            ? {
+                _id: deletingRequest.user_id,
+                user_name: deletingRequest.user_name,
+                email: deletingRequest.user_email,
+              }
+            : null
+        }
+        onConfirm={async ({ confirmation }) => {
+          if (!deletingRequest) return;
+          setProcessingId(deletingRequest.id);
+          try {
+            const response = await api.post(`/deletion-requests/${deletingRequest.id}/approve`, {
+              mode: 'full',
+              confirmation,
+            });
+            if (response.data.status !== 200) {
+              throw new Error(response.data.message || 'Approval failed.');
+            }
+            await fetchData();
+            setSelected(null);
+            setDeletingRequest(null);
+          } catch (error) {
+            console.error('Error approving deletion request:', error);
+            alert(error.response?.data?.message || error.message || 'Approval failed.');
+            throw error;
+          } finally {
+            setProcessingId(null);
+          }
+        }}
+      />
     </div>
   );
 };

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '@/api';
 import Loader from './Loader';
 import Modal from './Modal';
+import DeleteUserModal from './DeleteUserModal';
 
 const UsersView = () => {
   const [users, setUsers] = useState([]);
@@ -14,6 +15,7 @@ const UsersView = () => {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total_count: 0, total_pages: 1, current_page: 1, page_size: 20 });
+  const [deletingUser, setDeletingUser] = useState(null);
   const [referralsFor, setReferralsFor] = useState(null);
   const [referrals, setReferrals] = useState(null);
   const [isLoadingReferrals, setIsLoadingReferrals] = useState(false);
@@ -97,17 +99,8 @@ const UsersView = () => {
     }
   };
 
-  const handleDeleteUser = async (user) => {
-    if (confirm(`CRITICAL: Are you sure you want to DELETE user ${user.user_name}? This action cannot be undone.`)) {
-      try {
-        const response = await api.delete(`/delete-user/${user._id}`);
-        if (response.data.status === 200) {
-          await fetchUsers(page, searchTerm, statusFilter);
-        }
-      } catch (error) {
-        console.error("Error deleting user:", error);
-      }
-    }
+  const handleDeleteUser = (user) => {
+    setDeletingUser(user);
   };
 
   const filteredUsers = users;
@@ -379,6 +372,16 @@ const UsersView = () => {
           </div>
         </form>
       </Modal>
+
+      <DeleteUserModal
+        isOpen={Boolean(deletingUser)}
+        onClose={() => setDeletingUser(null)}
+        user={deletingUser}
+        onDeleted={async () => {
+          setDeletingUser(null);
+          await fetchUsers(page, searchTerm, statusFilter);
+        }}
+      />
     </div>
   );
 };
