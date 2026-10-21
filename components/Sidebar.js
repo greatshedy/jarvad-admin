@@ -1,26 +1,26 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigation } from '@/context/NavigationContext';
+
+const defaultAdminUser = {
+  name: 'Admin User',
+  email: 'admin@jarvad.com',
+  picture: ''
+};
 
 const Sidebar = ({ isOpen, onClose }) => {
   const { activeView, setActiveView } = useNavigation();
-  const [adminUser, setAdminUser] = useState({
-    name: 'Admin User',
-    email: 'admin@jarvad.com',
-    picture: ''
-  });
-
-  useEffect(() => {
+  const [adminUser] = useState(() => {
+    if (typeof window === 'undefined') return defaultAdminUser;
     try {
       const stored = localStorage.getItem('admin_user');
-      if (stored) {
-        setAdminUser(JSON.parse(stored));
-      }
+      return stored ? JSON.parse(stored) : defaultAdminUser;
     } catch (e) {
       console.error("Failed to load user details in sidebar:", e);
+      return defaultAdminUser;
     }
-  }, []);
+  });
 
   const handleLogout = () => {
     if (confirm("Are you sure you want to log out of the admin panel?")) {
@@ -37,6 +37,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       isGroup: true,
       subItems: [
         { name: 'Estate', view: 'estates' },
+        { name: 'Housing', view: 'housing-subscriptions' },
         { name: 'Bulk Upload', view: 'bulk-estate-upload' },
         { name: 'Child Investment', view: 'child-investments' }
       ]

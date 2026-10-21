@@ -27,6 +27,23 @@ const ManagementTable = ({ houses, onEdit, onDelete, onChangeStatus }) => {
               <tr key={house._id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-all group">
                 <td className="p-4">
                   <p className="text-sm font-bold text-zinc-900 dark:text-white">{house.house_name}</p>
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                    {house.land_enabled !== false && (
+                      <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wide bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+                        Land
+                      </span>
+                    )}
+                    {house.housing_enabled && (
+                      <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wide bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">
+                        Housing
+                      </span>
+                    )}
+                    {house.house_is_promo && (
+                      <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wide bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
+                        Promo
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="p-4">
                   <p className="text-sm text-zinc-500 dark:text-zinc-400">{house.house_location}</p>

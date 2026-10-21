@@ -17,6 +17,8 @@ const SettingsView = () => {
     sub_duration_months: '',
     penalty_percentage: '',
     support_whatsapp: '',
+    housing_registration_fee: '',
+    housing_savings_multiplier: '',
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -36,6 +38,8 @@ const SettingsView = () => {
           sub_duration_months: data.sub_duration_months ?? '',
           penalty_percentage: data.penalty_percentage ?? '',
           support_whatsapp: data.support_whatsapp ?? '',
+          housing_registration_fee: data.housing_registration_fee ?? '',
+          housing_savings_multiplier: data.housing_savings_multiplier ?? '',
         });
       } else {
         setError(response.data.message || 'Failed to load subscription settings.');
@@ -67,6 +71,8 @@ const SettingsView = () => {
     const penalty = Number(form.penalty_percentage);
     const supportWhatsapp = String(form.support_whatsapp || '').trim();
     const supportDigits = supportWhatsapp.replace(/\D/g, '');
+    const housingFee = Number(form.housing_registration_fee);
+    const housingMultiplier = Number(form.housing_savings_multiplier);
 
     if (!(vendorFee > 0) || !(partnerFee > 0)) {
       setError('Vendor and Partner fees must be greater than 0.');
@@ -84,6 +90,14 @@ const SettingsView = () => {
       setError('Support WhatsApp number is required.');
       return;
     }
+    if (!(housingFee >= 0) || Number.isNaN(housingFee)) {
+      setError('Housing registration fee must be 0 or greater.');
+      return;
+    }
+    if (!(housingMultiplier > 0) || Number.isNaN(housingMultiplier)) {
+      setError('Housing savings multiplier must be greater than 0.');
+      return;
+    }
 
     try {
       setIsSaving(true);
@@ -93,6 +107,8 @@ const SettingsView = () => {
         sub_duration_months: months,
         penalty_percentage: penalty,
         support_whatsapp: supportWhatsapp,
+        housing_registration_fee: housingFee,
+        housing_savings_multiplier: housingMultiplier,
       });
       if (response.data.status === 200) {
         const data = response.data.data || {};
@@ -102,6 +118,8 @@ const SettingsView = () => {
           sub_duration_months: data.sub_duration_months ?? months,
           penalty_percentage: data.penalty_percentage ?? penalty,
           support_whatsapp: data.support_whatsapp ?? supportWhatsapp,
+          housing_registration_fee: data.housing_registration_fee ?? housingFee,
+          housing_savings_multiplier: data.housing_savings_multiplier ?? housingMultiplier,
         });
         setNotice('Subscription pricing updated. New fees apply to new registrations, renewals and auto-debits immediately.');
       } else {
@@ -143,7 +161,7 @@ const SettingsView = () => {
           Subscription Settings
         </h2>
         <p className="text-zinc-500 dark:text-zinc-400 mt-1">
-          Configure vendor &amp; partner fees, subscription duration and late-payment penalty.
+          Configure subscriptions, JardHouz housing defaults and late-payment penalties.
         </p>
       </div>
 
@@ -221,6 +239,38 @@ const SettingsView = () => {
               placeholder="5"
               required
             />
+          </div>
+
+          <div>
+            <label className={labelClass}>Housing Registration Fee (₦)</label>
+            <input
+              type="number"
+              min="0"
+              step="any"
+              value={form.housing_registration_fee}
+              onChange={handleChange('housing_registration_fee')}
+              className={inputClass}
+              placeholder="100000"
+            />
+            <p className="text-xs text-zinc-400 mt-2">
+              Default one-time fee. An estate can override this.
+            </p>
+          </div>
+
+          <div>
+            <label className={labelClass}>Housing Savings Multiplier</label>
+            <input
+              type="number"
+              min="0.1"
+              step="0.1"
+              value={form.housing_savings_multiplier}
+              onChange={handleChange('housing_savings_multiplier')}
+              className={inputClass}
+              placeholder="2"
+            />
+            <p className="text-xs text-zinc-400 mt-2">
+              Savings × multiplier = accessible house value. An estate can override this.
+            </p>
           </div>
 
           <div>

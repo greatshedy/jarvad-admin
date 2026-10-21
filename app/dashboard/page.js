@@ -16,6 +16,7 @@ import DeletionRequestsView from '@/components/DeletionRequestsView';
 import ReportsView from '@/components/ReportsView';
 import JardProcProducts from '@/components/JardProcProducts';
 import JardProcOrders from '@/components/JardProcOrders';
+import HousingSubscriptions from '@/components/HousingSubscriptions';
 import PartnersView from '@/components/PartnersView';
 import SettingsView from '@/components/SettingsView';
 import Modal from '@/components/Modal';
@@ -123,6 +124,18 @@ const DashboardPage = () => {
       formData.append('house_is_promo', houseData.house_is_promo);
       formData.append('house_promo_type', houseData.house_promo_type);
       formData.append('house_promo_value', houseData.house_promo_value);
+      formData.append('promo_visible', houseData.promo_visible !== false);
+      formData.append('promo_starts_at', houseData.promo_starts_at || '');
+      formData.append('promo_ends_at', houseData.promo_ends_at || '');
+      formData.append('promo_label', houseData.promo_label || '');
+      formData.append('promo_terms', houseData.promo_terms || '');
+      formData.append('promo_applies_to', houseData.promo_applies_to || 'unit_price');
+      formData.append('land_enabled', houseData.land_enabled !== false);
+      formData.append('housing_enabled', Boolean(houseData.housing_enabled));
+      formData.append('property_type_prices', JSON.stringify(houseData.property_type_prices || {}));
+      formData.append('housing_unit_types', JSON.stringify(houseData.housing_unit_types || []));
+      formData.append('housing_registration_fee', houseData.housing_registration_fee ?? '');
+      formData.append('housing_savings_multiplier', houseData.housing_savings_multiplier ?? '');
       formData.append('house_pricing_plan', JSON.stringify(houseData.house_pricing_plan));
       formData.append('house_landmarks', JSON.stringify(houseData.house_landmarks));
       formData.append('house_benefits', JSON.stringify(houseData.house_benefits));
@@ -162,6 +175,18 @@ const DashboardPage = () => {
       formData.append('house_is_promo', houseData.house_is_promo);
       formData.append('house_promo_type', houseData.house_promo_type);
       formData.append('house_promo_value', houseData.house_promo_value);
+      formData.append('promo_visible', houseData.promo_visible !== false);
+      formData.append('promo_starts_at', houseData.promo_starts_at || '');
+      formData.append('promo_ends_at', houseData.promo_ends_at || '');
+      formData.append('promo_label', houseData.promo_label || '');
+      formData.append('promo_terms', houseData.promo_terms || '');
+      formData.append('promo_applies_to', houseData.promo_applies_to || 'unit_price');
+      formData.append('land_enabled', houseData.land_enabled !== false);
+      formData.append('housing_enabled', Boolean(houseData.housing_enabled));
+      formData.append('property_type_prices', JSON.stringify(houseData.property_type_prices || {}));
+      formData.append('housing_unit_types', JSON.stringify(houseData.housing_unit_types || []));
+      formData.append('housing_registration_fee', houseData.housing_registration_fee ?? '');
+      formData.append('housing_savings_multiplier', houseData.housing_savings_multiplier ?? '');
       formData.append('house_pricing_plan', JSON.stringify(houseData.house_pricing_plan));
       formData.append('house_landmarks', JSON.stringify(houseData.house_landmarks));
       formData.append('house_benefits', JSON.stringify(houseData.house_benefits));
@@ -280,7 +305,7 @@ const DashboardPage = () => {
         </div>
         <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Connection Timeout</h3>
         <p className="text-zinc-500 dark:text-zinc-400 max-w-sm mb-8">
-          The dashboard couldn't reach the backend server. Please verify the backend is running and try again.
+          The dashboard could not reach the backend server. Please verify the backend is running and try again.
         </p>
         <button 
           onClick={() => {
@@ -418,6 +443,11 @@ const DashboardPage = () => {
       {/* Subscription Settings */}
       {activeView === 'settings' && (
         <SettingsView />
+      )}
+
+      {/* Housing Management */}
+      {activeView === 'housing-subscriptions' && (
+        <HousingSubscriptions />
       )}
 
       {/* JardProc Management */}

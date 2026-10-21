@@ -16,6 +16,22 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
     house_is_promo: false,
     house_promo_type: '',
     house_promo_value: 0,
+    promo_visible: true,
+    promo_starts_at: '',
+    promo_ends_at: '',
+    promo_label: '',
+    promo_terms: '',
+    promo_applies_to: 'unit_price',
+    land_enabled: true,
+    housing_enabled: false,
+    property_type_prices: {
+      residential: '',
+      'residential-commercial': '',
+      full_commercial: '',
+    },
+    housing_unit_types: [],
+    housing_registration_fee: '',
+    housing_savings_multiplier: '',
   };
 
   const [formData, setFormData] = useState({
@@ -39,9 +55,26 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
         }));
       }
 
+      const normalizeDateTimeInput = (value) => {
+        if (!value) return '';
+        const text = String(value);
+        return text.length >= 16 ? text.slice(0, 16) : text;
+      };
+
       setFormData({
         ...defaultState,
         ...freshData,
+        promo_starts_at: normalizeDateTimeInput(freshData.promo_starts_at),
+        promo_ends_at: normalizeDateTimeInput(freshData.promo_ends_at),
+        property_type_prices: {
+          ...defaultState.property_type_prices,
+          ...(freshData.property_type_prices && typeof freshData.property_type_prices === 'object'
+            ? freshData.property_type_prices
+            : {}),
+        },
+        housing_unit_types: Array.isArray(freshData.housing_unit_types)
+          ? freshData.housing_unit_types
+          : [],
         // Explicitly ensuring house_image is a fresh, unique array
         house_image: [...(freshData.house_image || [])]
       });
@@ -62,6 +95,14 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
     downPayment: '',
   });
 
+  const [showUnitForm, setShowUnitForm] = useState(false);
+  const [currentUnit, setCurrentUnit] = useState({
+    name: '',
+    price: '',
+    is_custom: false,
+    enabled: true,
+  });
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -75,6 +116,16 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
     setCurrentPlan((prev) => ({
       ...prev,
       [name]: value,
+    }));
+  };
+
+  const handlePropertyPriceChange = (key, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      property_type_prices: {
+        ...(prev.property_type_prices || {}),
+        [key]: value,
+      },
     }));
   };
 
@@ -96,6 +147,67 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
     });
     setInstallmentInput('');
     setShowPlanForm(false);
+  };
+
+  const addStandardUnits = () => {
+    const standard = [
+      { name: 'One Bedroom Flat', price: '', is_custom: false, enabled: true },
+      { name: 'Two Bedroom Flat', price: '', is_custom: false, enabled: true },
+      { name: '3 Bedroom Duplex', price: '', is_custom: false, enabled: true },
+      { name: 'Custom', price: '', is_custom: true, enabled: true },
+    ].map((unit) => ({ ...unit, id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}` }));
+
+    setFormData((prev) => {
+      const existing = prev.housing_unit_types || [];
+      const existingNames = new Set(existing.map((unit) => String(unit.name || '').toLowerCase()));
+      return {
+        ...prev,
+        housing_unit_types: [
+          ...existing,
+          ...standard.filter((unit) => !existingNames.has(unit.name.toLowerCase())),
+        ],
+      };
+    });
+  };
+
+  const saveUnit = () => {
+    if (!currentUnit.name.trim()) {
+      alert('Please enter a unit name');
+      return;
+    }
+    if (!currentUnit.is_custom && Number(currentUnit.price) <= 0) {
+      alert('Please enter the structure price');
+      return;
+    }
+    setFormData((prev) => {
+      const units = prev.housing_unit_types || [];
+      const exists = Boolean(currentUnit.id) && units.some((unit) => unit.id === currentUnit.id);
+      const savedUnit = {
+        ...currentUnit,
+        name: currentUnit.name.trim(),
+        price: currentUnit.price,
+      };
+      return {
+        ...prev,
+        housing_unit_types: exists
+          ? units.map((unit) => (unit.id === currentUnit.id ? savedUnit : unit))
+          : [...units, { ...savedUnit, id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}` }],
+      };
+    });
+    setCurrentUnit({ name: '', price: '', is_custom: false, enabled: true });
+    setShowUnitForm(false);
+  };
+
+  const editUnit = (unit) => {
+    setCurrentUnit({ ...unit });
+    setShowUnitForm(true);
+  };
+
+  const removeUnit = (id) => {
+    setFormData((prev) => ({
+      ...prev,
+      housing_unit_types: (prev.housing_unit_types || []).filter((unit) => unit.id !== id),
+    }));
   };
 
   const handleAddInstallment = (e) => {
@@ -250,6 +362,13 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const missingUnitPrices = (formData.housing_unit_types || []).some(
+      (unit) => !unit.is_custom && unit.enabled !== false && !(Number(unit.price) > 0)
+    );
+    if (formData.housing_enabled && missingUnitPrices) {
+      alert('Please set a price for every non-custom housing option.');
+      return;
+    }
     if (onSubmit) {
       // Clean Handover: Deep clone the formData to ensure it's a completely fresh object
       const finalSubmissionData = JSON.parse(JSON.stringify(formData));
@@ -365,6 +484,204 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
               <option value="full commercial">Full Commercial</option>
             </select>
           </div>
+        </div>
+
+        {/* Marketplace Modes */}
+        <div className="pt-6 border-t border-zinc-200 dark:border-zinc-800 space-y-5">
+          <div>
+            <h3 className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-white">Marketplace Modes</h3>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+              Choose which JardHouz paths this estate appears in.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label className="flex items-center justify-between gap-4 p-4 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-900/30">
+              <div>
+                <p className="font-bold text-zinc-900 dark:text-white">Land / Estate</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Show in the Land / Estate path.</p>
+              </div>
+              <input
+                type="checkbox"
+                checked={Boolean(formData.land_enabled)}
+                onChange={(e) => setFormData((prev) => ({ ...prev, land_enabled: e.target.checked }))}
+                className="w-5 h-5 accent-indigo-600"
+              />
+            </label>
+            <label className="flex items-center justify-between gap-4 p-4 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-900/30">
+              <div>
+                <p className="font-bold text-zinc-900 dark:text-white">Housing</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Show only when Housing is enabled.</p>
+              </div>
+              <input
+                type="checkbox"
+                checked={Boolean(formData.housing_enabled)}
+                onChange={(e) => setFormData((prev) => ({ ...prev, housing_enabled: e.target.checked }))}
+                className="w-5 h-5 accent-indigo-600"
+              />
+            </label>
+          </div>
+
+          {formData.land_enabled && (
+            <div className="p-5 rounded-3xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/40 dark:bg-indigo-900/10">
+              <h4 className="font-bold text-zinc-900 dark:text-white mb-4">Land / Estate Pricing</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[
+                  { key: 'residential', label: 'Residential' },
+                  { key: 'residential-commercial', label: 'Residential Commercial' },
+                  { key: 'full_commercial', label: 'Full Commercial' },
+                ].map((item) => (
+                  <div key={item.key} className="space-y-2">
+                    <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{item.label} (₦)</label>
+                    <input
+                      type="number"
+                      value={formData.property_type_prices?.[item.key] ?? ''}
+                      onChange={(e) => handlePropertyPriceChange(item.key, e.target.value)}
+                      placeholder="e.g. 5000000"
+                      className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {formData.housing_enabled && (
+            <div className="p-5 rounded-3xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-900/10 space-y-5">
+              <div>
+                <h4 className="font-bold text-zinc-900 dark:text-white">Housing Settings</h4>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                  Leave fee or multiplier blank to use the global setting.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">One-time Registration Fee (₦)</label>
+                  <input
+                    type="number"
+                    value={formData.housing_registration_fee ?? ''}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, housing_registration_fee: e.target.value }))}
+                    placeholder="Global default"
+                    className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Savings Multiplier (x)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={formData.housing_savings_multiplier ?? ''}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, housing_savings_multiplier: e.target.value }))}
+                    placeholder="Global default (e.g. 2)"
+                    className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h4 className="font-bold text-zinc-900 dark:text-white">Housing Options</h4>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={addStandardUnits}
+                    className="px-4 py-2 rounded-xl text-sm font-bold border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/30"
+                  >
+                    Add Standard Options
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCurrentUnit({ name: '', price: '', is_custom: false, enabled: true });
+                      setShowUnitForm(true);
+                    }}
+                    className="px-4 py-2 rounded-xl text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700"
+                  >
+                    Add Option
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {(formData.housing_unit_types || []).map((unit) => (
+                  <div key={unit.id} className="relative p-4 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+                    <div className="absolute top-3 right-3 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => editUnit(unit)}
+                        className="text-xs font-bold text-indigo-600 hover:text-indigo-700"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeUnit(unit.id)}
+                        className="text-zinc-400 hover:text-red-500"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    </div>
+                    <p className="font-bold text-zinc-900 dark:text-white pr-16">{unit.name}</p>
+                    <p className={`text-sm mt-1 ${!unit.is_custom && !Number(unit.price) ? 'text-rose-500 font-semibold' : 'text-zinc-500 dark:text-zinc-400'}`}>
+                      {unit.is_custom
+                        ? 'Custom value entered by user'
+                        : Number(unit.price) > 0
+                        ? `₦${Number(unit.price).toLocaleString()}`
+                        : 'Set a price'}
+                    </p>
+                    {unit.is_custom ? (
+                      <span className="inline-block mt-2 text-[10px] font-bold uppercase tracking-wider text-emerald-600">Custom</span>
+                    ) : null}
+                  </div>
+                ))}
+                {(formData.housing_unit_types || []).length === 0 && (
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400 col-span-full">
+                    No housing options yet. Add the standard options or create your own.
+                  </p>
+                )}
+              </div>
+
+              {showUnitForm && (
+                <div className="p-4 rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-white dark:bg-zinc-900 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Option Name</label>
+                      <input
+                        type="text"
+                        value={currentUnit.name}
+                        onChange={(e) => setCurrentUnit((prev) => ({ ...prev, name: e.target.value }))}
+                        placeholder="e.g. One Bedroom Flat"
+                        className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-transparent focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Structure Price (₦)</label>
+                      <input
+                        type="number"
+                        value={currentUnit.price}
+                        onChange={(e) => setCurrentUnit((prev) => ({ ...prev, price: e.target.value }))}
+                        disabled={currentUnit.is_custom}
+                        placeholder={currentUnit.is_custom ? 'User enters value' : 'e.g. 15000000'}
+                        className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-transparent focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white disabled:opacity-50"
+                      />
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                    <input
+                      type="checkbox"
+                      checked={currentUnit.is_custom}
+                      onChange={(e) => setCurrentUnit((prev) => ({ ...prev, is_custom: e.target.checked }))}
+                      className="w-4 h-4 accent-emerald-600"
+                    />
+                    Allow user to enter a custom structure value
+                  </label>
+                  <div className="flex gap-3">
+                    <button type="button" onClick={saveUnit} className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-bold">Save Option</button>
+                    <button type="button" onClick={() => { setShowUnitForm(false); setCurrentUnit({ name: '', price: '', is_custom: false, enabled: true }); }} className="px-5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 font-bold text-zinc-600 dark:text-zinc-300">Cancel</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Estate Pics (Images) */}
@@ -535,31 +852,102 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
             </label>
           </div>
           {formData.house_is_promo && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-800 rounded-2xl">
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Promo Type</label>
-                <select
-                  name="house_promo_type"
-                  value={formData.house_promo_type}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 sm:py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all dark:text-white text-sm sm:text-base"
-                >
-                  <option value="" disabled>Select promo type</option>
-                  <option value="percentage">Percentage Discount</option>
-                  <option value="fixed">Fixed Price</option>
-                </select>
+            <div className="space-y-4 p-4 bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-800 rounded-2xl">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Promo Type</label>
+                  <select
+                    name="house_promo_type"
+                    value={formData.house_promo_type}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 sm:py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all dark:text-white text-sm sm:text-base"
+                  >
+                    <option value="" disabled>Select promo type</option>
+                    <option value="percentage">Percentage Discount</option>
+                    <option value="fixed">Fixed Price</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                    {formData.house_promo_type === 'percentage' ? 'Discount Percentage (%)' : 'Promo Price (₦)'}
+                  </label>
+                  <input
+                    type="number"
+                    name="house_promo_value"
+                    value={formData.house_promo_value}
+                    onChange={handleChange}
+                    placeholder={formData.house_promo_type === 'percentage' ? 'e.g. 20' : 'e.g. 4000000'}
+                    className="w-full px-4 py-2 sm:py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all dark:text-white text-sm sm:text-base"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Promo Label</label>
+                  <input
+                    type="text"
+                    name="promo_label"
+                    value={formData.promo_label || ''}
+                    onChange={handleChange}
+                    placeholder="e.g. Launch Promo"
+                    className="w-full px-4 py-2 sm:py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Applies To</label>
+                  <select
+                    name="promo_applies_to"
+                    value={formData.promo_applies_to || 'unit_price'}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 sm:py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
+                  >
+                    <option value="unit_price">Structure / Property Price</option>
+                    <option value="registration_fee">Housing Registration Fee</option>
+                    <option value="both">Both</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Starts At</label>
+                  <input
+                    type="datetime-local"
+                    name="promo_starts_at"
+                    value={formData.promo_starts_at || ''}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 sm:py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Ends At</label>
+                  <input
+                    type="datetime-local"
+                    name="promo_ends_at"
+                    value={formData.promo_ends_at || ''}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 sm:py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-                  {formData.house_promo_type === 'percentage' ? 'Discount Percentage (%)' : 'Promo Price (₦)'}
-                </label>
+              <label className="flex items-center justify-between gap-4 p-3 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white/70 dark:bg-zinc-900/40">
+                <div>
+                  <p className="font-semibold text-zinc-800 dark:text-zinc-200 text-sm">Show promo in the app</p>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                    Hides the promo display. Use the main Promotion switch to end it. Existing enrollments keep their locked discount.
+                  </p>
+                </div>
                 <input
-                  type="number"
-                  name="house_promo_value"
-                  value={formData.house_promo_value}
+                  type="checkbox"
+                  checked={formData.promo_visible !== false}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, promo_visible: e.target.checked }))}
+                  className="w-5 h-5 accent-indigo-600"
+                />
+              </label>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Promo Terms</label>
+                <textarea
+                  name="promo_terms"
+                  value={formData.promo_terms || ''}
                   onChange={handleChange}
-                  placeholder={formData.house_promo_type === 'percentage' ? 'e.g. 20' : 'e.g. 4000000'}
-                  className="w-full px-4 py-2 sm:py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all dark:text-white text-sm sm:text-base"
+                  rows="2"
+                  placeholder="Terms shown with the promo"
+                  className="w-full px-4 py-2 sm:py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white resize-none"
                 />
               </div>
             </div>
