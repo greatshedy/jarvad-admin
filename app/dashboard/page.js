@@ -19,6 +19,7 @@ import JardProcOrders from '@/components/JardProcOrders';
 import HousingSubscriptions from '@/components/HousingSubscriptions';
 import PartnersView from '@/components/PartnersView';
 import SettingsView from '@/components/SettingsView';
+import BlockInvestmentsView from '@/components/BlockInvestmentsView';
 import Modal from '@/components/Modal';
 import Loader from '@/components/Loader';
 import { api } from '@/api';
@@ -457,6 +458,22 @@ const DashboardPage = () => {
 
       {activeView === 'jardproc-orders' && (
         <JardProcOrders />
+      )}
+
+      {activeView === 'block-investments' && (
+        <BlockInvestmentsView mode="investments" />
+      )}
+
+      {activeView === 'block-plans' && (
+        <BlockInvestmentsView mode="plans" />
+      )}
+
+      {activeView === 'block-referrals' && (
+        <BlockInvestmentsView mode="referrals" />
+      )}
+
+      {activeView === 'block-settings' && (
+        <BlockInvestmentsView mode="settings" />
       )}
 
       {/* Forms View */}

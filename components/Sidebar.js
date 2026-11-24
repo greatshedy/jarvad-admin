@@ -51,6 +51,17 @@ const Sidebar = ({ isOpen, onClose }) => {
         { name: 'Orders', view: 'jardproc-orders' }
       ]
     },
+    { 
+      name: 'Jard Block', 
+      icon: 'blocks', 
+      isGroup: true,
+      subItems: [
+        { name: 'Investments', view: 'block-investments' },
+        { name: 'Plans', view: 'block-plans' },
+        { name: 'Referrals', view: 'block-referrals' },
+        { name: 'Settings', view: 'block-settings' }
+      ]
+    },
     { name: 'Partners', icon: 'users', view: 'partners' },
     { name: 'Users', icon: 'user-group', view: 'users' },
     { name: 'Deletion Requests', icon: 'trash', view: 'deletion-requests' },
@@ -60,7 +71,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { name: 'Subscription Settings', icon: 'cog', view: 'settings' },
   ];
 
-  const [expandedGroups, setExpandedGroups] = React.useState(['Product']);
+  const [expandedGroups, setExpandedGroups] = React.useState(['Product', 'Jard Block']);
 
   const toggleGroup = (name) => {
     setExpandedGroups(prev => 
@@ -108,6 +119,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             {item.icon === 'home' && <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>}
                             {item.icon === 'shopping-bag' && <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>}
+                            {item.icon === 'blocks' && <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4h7v7H4V4zm9 0h7v7h-7V4zM4 13h7v7H4v-7zm9 0h7v7h-7v-7z"></path>}
                           </svg>
                         </div>
                         <span>{item.name}</span>
