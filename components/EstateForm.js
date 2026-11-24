@@ -25,6 +25,39 @@ const normalizePropertyTypeKey = (value) => {
 const getPropertyTypeLabel = (value) =>
   PROPERTY_TYPE_OPTIONS.find((item) => item.key === normalizePropertyTypeKey(value))?.label || 'Unassigned';
 
+const getPlanDiscount = (plan) => {
+  const sale = Number(plan?.outrightPrice ?? plan?.price ?? 0);
+  const original = Number(plan?.originalPrice ?? 0);
+  if (!original || !sale || original <= sale) {
+    return { original: 0, sale, percent: 0, hasDiscount: false };
+  }
+  return {
+    original,
+    sale,
+    percent: Math.round((1 - sale / original) * 100),
+    hasDiscount: true,
+  };
+};
+
+function PlanPriceDisplay({ plan }) {
+  const deal = getPlanDiscount(plan);
+  return (
+    <div className="flex flex-wrap items-baseline gap-2">
+      <p className="text-lg font-bold text-zinc-900 dark:text-white">
+        <PlanPriceDisplay plan={plan} />
+      </p>
+      {deal.hasDiscount ? (
+        <>
+          <p className="text-sm font-semibold text-zinc-400 line-through">?{deal.original.toLocaleString()}</p>
+          <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+            {deal.percent}% off
+          </span>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 const EstateForm = ({ onSubmit, onCancel, initialData }) => {
   const defaultState = {
     house_name: '',
@@ -113,6 +146,7 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
   const [currentPlan, setCurrentPlan] = useState({
     propertyType: '',
     unitSqm: '',
+    originalPrice: '',
     outrightPrice: '',
     percentageIncrease: '',
     numInstallments: [],
@@ -153,6 +187,12 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
       alert('Please fill in at least the unit/SQM and outright price.');
       return;
     }
+    const salePrice = Number(currentPlan.outrightPrice) || 0;
+    const originalPrice = Number(currentPlan.originalPrice) || 0;
+    if (originalPrice > 0 && originalPrice <= salePrice) {
+      alert('Original price must be greater than the outright/sale price, or leave it blank.');
+      return;
+    }
 
     const plans = formData.house_pricing_plan || [];
     const sameTypePlan = plans.find(
@@ -169,10 +209,16 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
     setFormData((prev) => {
       const previousPlans = prev.house_pricing_plan || [];
       const planId = sameTypePlan?.id || currentPlan.id || Date.now();
+      const normalizedOriginal = Number(currentPlan.originalPrice) || 0;
       const nextPlan = {
         ...currentPlan,
         propertyType: normalizedType,
-        price: currentPlan.outrightPrice,
+        originalPrice: normalizedOriginal > salePrice ? normalizedOriginal : null,
+        outrightPrice: salePrice,
+        discountPercent: normalizedOriginal > salePrice
+          ? Math.round((1 - salePrice / normalizedOriginal) * 100)
+          : 0,
+        price: salePrice,
         id: planId,
       };
       const nextPlans = previousPlans.filter(
@@ -193,6 +239,7 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
     setCurrentPlan({
       propertyType: '',
       unitSqm: '',
+      originalPrice: '',
       outrightPrice: '',
       percentageIncrease: '',
       numInstallments: [],
@@ -207,6 +254,7 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
       ...plan,
       propertyType: normalizePropertyTypeKey(plan.propertyType),
       unitSqm: plan.unitSqm ?? '',
+      originalPrice: plan.originalPrice ?? '',
       outrightPrice: plan.outrightPrice ?? plan.price ?? '',
       price: plan.outrightPrice ?? plan.price ?? '',
       percentageIncrease: plan.percentageIncrease ?? '',
@@ -1036,6 +1084,7 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
                 setCurrentPlan({
                   propertyType: '',
                   unitSqm: '',
+                  originalPrice: '',
                   outrightPrice: '',
                   percentageIncrease: '',
                   numInstallments: [],
@@ -1160,9 +1209,19 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
                     placeholder="e.g. 500"
                     className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
                   />
+                </div>                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Original price (optional)</label>
+                  <input
+                    type="number"
+                    name="originalPrice"
+                    value={currentPlan.originalPrice}
+                    onChange={handlePlanChange}
+                    placeholder="e.g. 7000000"
+                    className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
+                  />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Outright price (₦)</label>
+                  <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Outright / sale price</label>
                   <input
                     type="number"
                     name="outrightPrice"
@@ -1171,6 +1230,18 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
                     placeholder="e.g. 5000000"
                     className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
                   />
+                  {(() => {
+                    const deal = getPlanDiscount(currentPlan);
+                    return deal.hasDiscount ? (
+                      <p className="text-xs font-bold text-emerald-600">
+                        ?{deal.original.toLocaleString()} ? ?{deal.sale.toLocaleString()} ? {deal.percent}% OFF
+                      </p>
+                    ) : (
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        Leave original blank if there is no discount.
+                      </p>
+                    );
+                  })()}
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Percentage increase (%)</label>
@@ -1240,6 +1311,7 @@ const EstateForm = ({ onSubmit, onCancel, initialData }) => {
                     setCurrentPlan({
                       propertyType: '',
                       unitSqm: '',
+                      originalPrice: '',
                       outrightPrice: '',
                       percentageIncrease: '',
                       numInstallments: [],
