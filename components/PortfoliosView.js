@@ -39,6 +39,9 @@ const planClass = (label) => {
 };
 
 const ProgressBar = ({ value }) => {
+  if (value === null || value === undefined) {
+    return <span className="text-xs font-semibold text-amber-600">Not available</span>;
+  }
   const percent = Math.min(100, Math.max(0, Number(value) || 0));
   return (
     <div className="flex items-center gap-2">
@@ -70,7 +73,40 @@ const DueLabel = ({ row }) => {
 const SummaryCard = ({ label, value, accent }) => (
   <div className="rounded-2xl border border-zinc-100 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
     <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">{label}</p>
-    <p className={`mt-2 text-xl font-black ${accent || 'text-zinc-900 dark:text-white'}`}>{value}</p>
+    <p className={`mt-2 break-words text-lg font-black xl:text-xl ${accent || 'text-zinc-900 dark:text-white'}`}>
+      {value}
+    </p>
+  </div>
+);
+
+const PaymentTable = ({ transactions }) => (
+  <div className="overflow-x-auto rounded-2xl border border-zinc-100 dark:border-zinc-800">
+    <table className="w-full min-w-[700px] text-left text-xs">
+      <thead className="bg-zinc-50 dark:bg-zinc-800/50">
+        <tr>
+          {['Date', 'Reference', 'Amount', 'Penalty', 'Months', 'Gateway', 'Status'].map((header) => (
+            <th key={header} className="p-3 font-bold uppercase tracking-wider text-zinc-500">{header}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {transactions.map((tx) => (
+          <tr key={tx._id || tx.tx_ref}>
+            <td className="p-3 text-zinc-600 dark:text-zinc-300">{formatDate(tx.created_at)}</td>
+            <td className="p-3 font-mono text-[10px] text-zinc-500">{tx.tx_ref || '\u2014'}</td>
+            <td className="p-3 font-bold text-zinc-800 dark:text-zinc-200">{formatMoney(tx.total_amount ?? tx.amount)}</td>
+            <td className="p-3 text-zinc-500">{formatMoney(tx.penalty_part)}</td>
+            <td className="p-3 text-zinc-500">{tx.months_covered ?? '\u2014'}</td>
+            <td className="p-3 text-zinc-500">{tx.gateway || '\u2014'}</td>
+            <td className="p-3">
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${statusClass(tx.status)}`}>
+                {tx.status || 'Unknown'}
+              </span>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   </div>
 );
 
@@ -264,11 +300,17 @@ const PortfoliosView = () => {
         </div>
       )}
 
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-6">
+      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 2xl:grid-cols-6">
         {summaryCards.map((card) => (
           <SummaryCard key={card.label} {...card} />
         ))}
       </div>
+
+      {summary?.missing_total > 0 && (
+        <p className="mb-6 text-xs font-semibold text-amber-600">
+          {summary.missing_total} portfolio{summary.missing_total === 1 ? '' : 's'} have no recorded total value; progress is shown as unavailable for those records.
+        </p>
+      )}
 
       <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
         <input
@@ -372,13 +414,17 @@ const PortfoliosView = () => {
                       {row.plan_label}
                     </span>
                   </td>
-                  <td className="p-4 text-sm font-semibold text-zinc-700 dark:text-zinc-200">{formatMoney(row.total_price)}</td>
+                  <td className="p-4 text-sm font-semibold text-zinc-700 dark:text-zinc-200">
+                    {row.total_recorded ? formatMoney(row.total_price) : (
+                      <span className="text-xs font-semibold text-amber-600">Not recorded</span>
+                    )}
+                  </td>
                   <td className="p-4 text-sm font-semibold text-emerald-600">{formatMoney(row.amount_paid)}</td>
                   <td className="p-4 text-sm font-semibold text-amber-600">{formatMoney(row.remaining_balance)}</td>
                   <td className="p-4">
                     <ProgressBar value={row.progress_percent} />
                     <p className="mt-1 text-[10px] text-zinc-400">
-                      {row.months_paid}/{row.duration_months || 0} months
+                      {row.duration_months > 0 ? `${row.months_paid}/${row.duration_months} months` : 'No monthly schedule'}
                     </p>
                   </td>
                   <td className="p-4"><DueLabel row={row} /></td>
@@ -468,7 +514,7 @@ const PortfoliosView = () => {
               <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-4">
                 {[
                   ['Plan', detail.portfolio.plan_label],
-                  ['Total', formatMoney(detail.portfolio.total_price)],
+                  ['Total', detail.portfolio.total_recorded ? formatMoney(detail.portfolio.total_price) : 'Not recorded'],
                   ['Paid', formatMoney(detail.portfolio.amount_paid)],
                   ['Outstanding', formatMoney(detail.portfolio.remaining_balance)],
                   ['Monthly', formatMoney(detail.portfolio.monthly_payment)],
@@ -476,7 +522,7 @@ const PortfoliosView = () => {
                   ['Next Due', formatDate(detail.portfolio.next_payment_date)],
                   ['Penalty', formatMoney(detail.portfolio.penalty_amount)],
                   ['Auto-debit', detail.portfolio.auto_debit ? 'On' : 'Off'],
-                  ['Months', `${detail.portfolio.months_paid}/${detail.portfolio.duration_months || 0}`],
+                  ['Months', detail.portfolio.duration_months > 0 ? `${detail.portfolio.months_paid}/${detail.portfolio.duration_months}` : 'No schedule'],
                 ].map(([label, value]) => (
                   <div key={label}>
                     <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">{label}</p>
@@ -488,11 +534,21 @@ const PortfoliosView = () => {
               <div className="mt-5">
                 <div className="mb-2 flex items-center justify-between text-xs font-bold text-zinc-500">
                   <span>Payment progress</span>
-                  <span>{detail.portfolio.progress_percent}%</span>
+                  <span>
+                    {detail.portfolio.progress_percent === null || detail.portfolio.progress_percent === undefined
+                      ? 'Not available'
+                      : `${detail.portfolio.progress_percent}%`}
+                  </span>
                 </div>
-                <div className="h-2.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-                  <div className="h-full rounded-full bg-indigo-500" style={{ width: `${detail.portfolio.progress_percent}%` }} />
-                </div>
+                {detail.portfolio.progress_percent === null || detail.portfolio.progress_percent === undefined ? (
+                  <p className="text-xs text-amber-600">
+                    The original total price was not recorded for this plan, so progress cannot be calculated.
+                  </p>
+                ) : (
+                  <div className="h-2.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                    <div className="h-full rounded-full bg-indigo-500" style={{ width: `${detail.portfolio.progress_percent}%` }} />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -511,34 +567,14 @@ const PortfoliosView = () => {
             <div>
               <h4 className="mb-3 text-sm font-black uppercase tracking-wider text-zinc-500">Payment history</h4>
               {detail.transactions?.length ? (
-                <div className="overflow-x-auto rounded-2xl border border-zinc-100 dark:border-zinc-800">
-                  <table className="w-full min-w-[700px] text-left text-xs">
-                    <thead className="bg-zinc-50 dark:bg-zinc-800/50">
-                      <tr>
-                        {['Date', 'Reference', 'Amount', 'Penalty', 'Months', 'Gateway', 'Status'].map((header) => (
-                          <th key={header} className="p-3 font-bold uppercase tracking-wider text-zinc-500">{header}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                      {detail.transactions.map((tx) => (
-                        <tr key={tx._id || tx.tx_ref}>
-                          <td className="p-3 text-zinc-600 dark:text-zinc-300">{formatDate(tx.created_at)}</td>
-                          <td className="p-3 font-mono text-[10px] text-zinc-500">{tx.tx_ref || '\u2014'}</td>
-                          <td className="p-3 font-bold text-zinc-800 dark:text-zinc-200">{formatMoney(tx.total_amount ?? tx.amount)}</td>
-                          <td className="p-3 text-zinc-500">{formatMoney(tx.penalty_part)}</td>
-                          <td className="p-3 text-zinc-500">{tx.months_covered ?? '\u2014'}</td>
-                          <td className="p-3 text-zinc-500">{tx.gateway || '\u2014'}</td>
-                          <td className="p-3">
-                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${statusClass(tx.status)}`}>
-                              {tx.status || 'Unknown'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <PaymentTable transactions={detail.transactions} />
+              ) : detail.related_transactions?.length ? (
+                <>
+                  <p className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300">
+                    These payments could not be linked directly to this plan in the migrated data. Showing payments recorded for the same user and estate.
+                  </p>
+                  <PaymentTable transactions={detail.related_transactions} />
+                </>
               ) : (
                 <p className="rounded-2xl border border-dashed border-zinc-200 p-6 text-center text-sm text-zinc-500 dark:border-zinc-800">
                   No payments recorded for this portfolio yet.
