@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import axios from 'axios';
 
 // Dependency-free JWT Decoder
@@ -239,6 +240,10 @@ export default function Home() {
           <span>&copy; {new Date().getFullYear()} Jarvad Group</span>
           <span>&bull;</span>
           <span className="text-zinc-500 hover:text-zinc-400 transition-colors cursor-pointer">Security Protocol v2.4</span>
+          <span>&bull;</span>
+          <Link href="/staff" className="text-emerald-500 hover:text-emerald-400 transition-colors">
+            Staff login
+          </Link>
         </div>
       </div>
     </div>

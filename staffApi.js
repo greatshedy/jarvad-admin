@@ -39,6 +39,17 @@ staffApi.interceptors.response.use(
         }
       }
     }
+
+    const detail = String(error.response?.data?.detail || "");
+    if (error.response?.status === 403 && /password change required/i.test(detail)) {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("staff_must_change", "true");
+        if (window.location.pathname !== "/staff/dashboard") {
+          window.location.href = "/staff/dashboard";
+        }
+      }
+    }
+
     return Promise.reject(error);
   }
 );
