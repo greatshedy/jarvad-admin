@@ -45,15 +45,28 @@ const ChildInvestmentTable = ({ investments, onEdit, onDelete, onChangeStatus })
   };
 
   // Unique plans for filter dropdown
-  const planTypes = ['ALL', ...new Set(investments.map(item => item.plan_type || 'Savings'))];
+  const planTypes = ['ALL', ...new Set(investments.map(item => item.plan_type || 'child_savings'))];
+  const planTypeLabel = (value) => (
+    value === 'child_property' ? 'Child Property' : 'Child Savings'
+  );
 
   const filteredInvestments = investments.filter(item => {
     const age = calculateAge(item.child_dob);
-    const matchesName = item.child_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesPlan = planFilter === 'ALL' || (item.plan_type || 'Savings') === planFilter;
+    const subscriber = item.subscriber || {};
+    const searchable = [
+      item.child_name,
+      subscriber.name,
+      subscriber.email,
+      subscriber.phone,
+      item.subscriber_name,
+      item.subscriber_email,
+      item.subscriber_phone,
+    ].filter(Boolean).join(' ').toLowerCase();
+    const matchesSearch = searchable.includes(searchTerm.toLowerCase());
+    const matchesPlan = planFilter === 'ALL' || (item.plan_type || 'child_savings') === planFilter;
     const matchesAge = ageFilter === '' || age.toString() === ageFilter;
-    
-    return matchesName && matchesPlan && matchesAge;
+
+    return matchesSearch && matchesPlan && matchesAge;
   });
 
   return (
@@ -69,7 +82,7 @@ const ChildInvestmentTable = ({ investments, onEdit, onDelete, onChangeStatus })
           <div className="relative">
             <input 
               type="text" 
-              placeholder="Filter by name..." 
+              placeholder="Filter child or parent..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-4 pr-10 py-2 text-xs border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-zinc-900 dark:text-white min-w-[180px]"
@@ -81,7 +94,7 @@ const ChildInvestmentTable = ({ investments, onEdit, onDelete, onChangeStatus })
             onChange={(e) => setPlanFilter(e.target.value)}
             className="px-4 py-2 text-xs border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 rounded-xl outline-none text-zinc-900 dark:text-white"
           >
-            {planTypes.map(p => <option key={p} value={p}>{p === 'ALL' ? 'All Plans' : p}</option>)}
+            {planTypes.map(p => <option key={p} value={p}>{p === 'ALL' ? 'All Plans' : planTypeLabel(p)}</option>)}
           </select>
 
           <input 
@@ -104,10 +117,11 @@ const ChildInvestmentTable = ({ investments, onEdit, onDelete, onChangeStatus })
       </div>
 
       <div className="overflow-x-auto thin-scrollbar">
-        <table className="min-w-[1000px] w-full text-left border-collapse">
+        <table className="min-w-[1200px] w-full text-left border-collapse">
           <thead>
             <tr className="bg-zinc-50 dark:bg-zinc-800/50">
               <th className="p-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Child Name</th>
+              <th className="p-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Parent / Subscriber</th>
               <th className="p-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Plan / Age</th>
               <th className="p-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Paid</th>
               <th className="p-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Remaining</th>
@@ -120,8 +134,13 @@ const ChildInvestmentTable = ({ investments, onEdit, onDelete, onChangeStatus })
             {filteredInvestments.map((item) => {
               const amountPaid = (item.monthly_amount || 0) * (item.months_paid || 0);
               const totalAmount = (item.monthly_amount || 0) * (item.total_months || 0);
-              const amountRemaining = totalAmount - amountPaid;
+              const amountRemaining = Math.max(0, totalAmount - amountPaid);
               const age = calculateAge(item.child_dob);
+              const subscriber = item.subscriber || {};
+              const subscriberName = subscriber.name || item.subscriber_name || 'Unknown subscriber';
+              const subscriberEmail = subscriber.email || item.subscriber_email || '';
+              const subscriberPhone = subscriber.phone || item.subscriber_phone || '';
+              const planLabel = item.plan_type === 'child_property' ? 'Child Property' : 'Child Savings';
 
               return (
                 <tr key={item._id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-all group">
@@ -129,7 +148,19 @@ const ChildInvestmentTable = ({ investments, onEdit, onDelete, onChangeStatus })
                     <p className="text-sm font-bold text-zinc-900 dark:text-white">{item.child_name}</p>
                   </td>
                   <td className="p-4">
-                    <p className="text-sm font-medium text-zinc-900 dark:text-white">{item.plan_type || 'Savings'}</p>
+                    <p className="text-sm font-bold text-zinc-900 dark:text-white">{subscriberName}</p>
+                    {subscriberEmail ? (
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">{subscriberEmail}</p>
+                    ) : null}
+                    {subscriberPhone ? (
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">{subscriberPhone}</p>
+                    ) : null}
+                    {!subscriberEmail && !subscriberPhone && subscriberName === 'Unknown subscriber' ? (
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-rose-500">Missing account</p>
+                    ) : null}
+                  </td>
+                  <td className="p-4">
+                    <p className="text-sm font-medium text-zinc-900 dark:text-white">{planLabel}</p>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">{age} Years Old</p>
                   </td>
                   <td className="p-4">
@@ -189,7 +220,7 @@ const ChildInvestmentTable = ({ investments, onEdit, onDelete, onChangeStatus })
             })}
             {filteredInvestments.length === 0 && (
               <tr>
-                <td colSpan="7" className="p-12 text-center text-zinc-500 dark:text-zinc-400 italic font-medium">
+                <td colSpan="8" className="p-12 text-center text-zinc-500 dark:text-zinc-400 italic font-medium">
                   No matching investment plans found. Try adjusting your filters.
                 </td>
               </tr>

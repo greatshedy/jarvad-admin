@@ -12,6 +12,7 @@ import BulkEstateUpload from '@/components/BulkEstateUpload';
 import FinanceView from '@/components/FinanceView';
 import WithdrawalsView from '@/components/WithdrawalsView';
 import UsersView from '@/components/UsersView';
+import StaffView from '@/components/StaffView';
 import DeletionRequestsView from '@/components/DeletionRequestsView';
 import ReportsView from '@/components/ReportsView';
 import JardProcProducts from '@/components/JardProcProducts';
@@ -214,26 +215,45 @@ const DashboardPage = () => {
   };
 
 
-  const handleAddChild = (childData) => {
-    setChildInvestments([...childInvestments, { ...childData, id: Date.now(), status: 'Active' }]);
-    setActiveView('child-investments');
+  const handleAddChild = async (childData) => {
+    setIsSubmitting(true);
+    try {
+      const response = await api.post('/add-child-investment', childData);
+      if (Number(response.data?.status) !== 200) {
+        throw new Error(response.data?.message || 'Failed to add child investment.');
+      }
+      await fetchChildInvestments();
+      setActiveView('child-investments');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleUpdateChild = (updatedChild) => {
-    setChildInvestments(childInvestments.map(c => c.id === editingChild.id ? { ...c, ...updatedChild } : c));
-    setEditingChild(null);
+  const handleUpdateChild = async (updatedChild) => {
+    setIsSubmitting(true);
+    try {
+      const response = await api.put(`/update-child-investment/${editingChild._id}`, updatedChild);
+      if (Number(response.data?.status) !== 200) {
+        throw new Error(response.data?.message || 'Failed to update child investment.');
+      }
+      await fetchChildInvestments();
+      setEditingChild(null);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleDeleteChild = async (id) => {
     if (confirm('Are you sure you want to delete this investment?')) {
       try {
         const response = await api.delete(`/delete-child-investment/${id}`);
-        if (response.data.status === 200) {
-          setChildInvestments(childInvestments.filter(c => c._id !== id));
+        if (Number(response.data?.status) !== 200) {
+          throw new Error(response.data?.message || 'Failed to delete investment.');
         }
+        await fetchChildInvestments();
       } catch (error) {
         console.error("Error deleting child:", error);
-        alert('Failed to delete investment.');
+        alert(error?.response?.data?.message || error.message || 'Failed to delete investment.');
       }
     }
   };
@@ -241,16 +261,16 @@ const DashboardPage = () => {
   const handleChangeChildStatus = async (id) => {
     try {
       const child = childInvestments.find(c => c._id === id);
+      if (!child) return;
       const newStatus = child.status === 'Active' ? 'Pending' : 'Active';
       const response = await api.patch(`/update-child-status/${id}`, { status: newStatus });
-      if (response.data.status === 200) {
-        setChildInvestments(childInvestments.map(c => 
-          c._id === id ? { ...c, status: newStatus } : c
-        ));
+      if (Number(response.data?.status) !== 200) {
+        throw new Error(response.data?.message || 'Failed to update status.');
       }
+      await fetchChildInvestments();
     } catch (error) {
       console.error("Error changing child status:", error);
-      alert('Failed to update status.');
+      alert(error?.response?.data?.message || error.message || 'Failed to update status.');
     }
   };
 
@@ -431,6 +451,10 @@ const DashboardPage = () => {
         <UsersView />
       )}
 
+      {activeView === 'staff' && (
+        <StaffView />
+      )}
+
       {/* Account Deletion Requests */}
       {activeView === 'deletion-requests' && (
         <DeletionRequestsView />
@@ -549,6 +573,7 @@ const DashboardPage = () => {
         title="Edit Child Investment"
       >
         <ChildForm 
+          key={editingChild?._id || 'edit-child'}
           initialData={editingChild} 
           onSubmit={handleUpdateChild} 
           onCancel={() => setEditingChild(null)} 

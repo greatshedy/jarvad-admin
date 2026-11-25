@@ -64,6 +64,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     },
     { name: 'Partners', icon: 'users', view: 'partners' },
     { name: 'Users', icon: 'user-group', view: 'users' },
+    { name: 'Staff', icon: 'user-group', view: 'staff' },
     { name: 'Deletion Requests', icon: 'trash', view: 'deletion-requests' },
     { name: 'Finance', icon: 'banknotes', view: 'finance' },
     { name: 'Withdrawals', icon: 'withdraw', view: 'withdrawals' },

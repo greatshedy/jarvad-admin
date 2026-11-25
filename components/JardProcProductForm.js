@@ -29,6 +29,7 @@ const JardProcProductForm = ({ onSubmit, onCancel, initialData }) => {
 
   useEffect(() => {
     if (initialData) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData({
         ...initialData,
         images: Array.isArray(initialData.image) ? initialData.image : [initialData.image],
@@ -47,6 +48,7 @@ const JardProcProductForm = ({ onSubmit, onCancel, initialData }) => {
       
       const totalStock = formData.variants.reduce((sum, v) => sum + (parseInt(v.stock) || 0), 0);
       
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData(prev => ({
         ...prev,
         price: minPrice.toString(),

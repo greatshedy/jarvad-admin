@@ -6,7 +6,21 @@ import Loader from './Loader';
 import Modal from './Modal';
 import JardProcProductForm from './JardProcProductForm';
 
-const JardProcProducts = () => {
+const ADMIN_ENDPOINTS = {
+  list: '/get-products',
+  add: '/add-product',
+  update: (id) => `/update-product/${id}`,
+  remove: (id) => `/delete-product/${id}`,
+  bulk: '/bulk-upload-products',
+};
+
+const JardProcProducts = ({
+  apiClient = api,
+  endpoints = ADMIN_ENDPOINTS,
+  allowDelete = true,
+  allowBulk = true,
+  heading = 'Shop Inventory',
+}) => {
   const [products, setProducts] = useState([]);
   const [isFetching, setIsFetching] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
@@ -28,7 +42,7 @@ const JardProcProducts = () => {
   const fetchProducts = async () => {
     try {
       setIsFetching(true);
-      const response = await api.get(`/get-products?category=${selectedCategory}`);
+      const response = await apiClient.get(`${endpoints.list}?category=${selectedCategory}`);
       if (response.data.status === 200) {
         setProducts(response.data.data);
       }
@@ -52,7 +66,7 @@ const JardProcProducts = () => {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await api.post('/bulk-upload-products', formData, {
+      const response = await apiClient.post(endpoints.bulk, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
@@ -96,9 +110,10 @@ const JardProcProducts = () => {
         formData.append('images', file);
       });
 
-      const endpoint = selectedProduct ? `/update-product/${selectedProduct._id}` : '/add-product';
       const options = { headers: { 'Content-Type': 'multipart/form-data' } };
-      const response = await (selectedProduct ? api.put(endpoint, formData, options) : api.post(endpoint, formData, options));
+      const response = await (selectedProduct
+        ? apiClient.put(endpoints.update(selectedProduct._id), formData, options)
+        : apiClient.post(endpoints.add, formData, options));
 
       if (response.data.status === 200) {
         setShowFormModal(false);
@@ -118,7 +133,7 @@ const JardProcProducts = () => {
   const handleDeleteProduct = async (id) => {
     if (window.confirm('Are you sure you want to delete this product?')) {
       try {
-        const response = await api.delete(`/delete-product/${id}`);
+        const response = await apiClient.delete(endpoints.remove(id));
         if (response.data.status === 200) {
           fetchProducts();
         }
@@ -135,7 +150,7 @@ const JardProcProducts = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
         <div>
           <h2 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-white flex items-center gap-3">
-            <span>Shop Inventory</span>
+            <span>{heading}</span>
             {isFetching && (
               <span className="inline-block w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></span>
             )}
@@ -143,11 +158,13 @@ const JardProcProducts = () => {
           <p className="text-zinc-500 dark:text-zinc-400 mt-1">Manage JardProc marketplace products and stock.</p>
         </div>
         <div className="flex items-center gap-3">
-          <label className="cursor-pointer px-6 py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold rounded-2xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all flex items-center gap-2">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-            Bulk Upload
-            <input type="file" accept=".csv" className="hidden" onChange={handleBulkUpload} disabled={isUploading} />
-          </label>
+          {allowBulk && (
+            <label className="cursor-pointer px-6 py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold rounded-2xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+              Bulk Upload
+              <input type="file" accept=".csv" className="hidden" onChange={handleBulkUpload} disabled={isUploading} />
+            </label>
+          )}
           <button 
             onClick={() => {
               setSelectedProduct(null);
@@ -211,12 +228,14 @@ const JardProcProducts = () => {
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                   </button>
-                  <button 
-                    onClick={() => handleDeleteProduct(product._id)}
-                    className="p-2 text-zinc-400 hover:text-rose-500 transition-colors"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                  </button>
+                  {allowDelete && (
+                    <button 
+                      onClick={() => handleDeleteProduct(product._id)}
+                      className="p-2 text-zinc-400 hover:text-rose-500 transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -230,7 +249,7 @@ const JardProcProducts = () => {
             <svg className="w-10 h-10 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
           </div>
           <h3 className="text-xl font-bold text-zinc-900 dark:text-white">No products found</h3>
-          <p className="text-zinc-500 dark:text-zinc-400 mt-2">There are no products listed under the "{selectedCategory}" category.</p>
+          <p className="text-zinc-500 dark:text-zinc-400 mt-2">There are no products listed under the &quot;{selectedCategory}&quot; category.</p>
         </div>
       )}
 
