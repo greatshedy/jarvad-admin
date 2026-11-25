@@ -13,6 +13,7 @@ import FinanceView from '@/components/FinanceView';
 import WithdrawalsView from '@/components/WithdrawalsView';
 import UsersView from '@/components/UsersView';
 import StaffView from '@/components/StaffView';
+import PortfoliosView from '@/components/PortfoliosView';
 import DeletionRequestsView from '@/components/DeletionRequestsView';
 import ReportsView from '@/components/ReportsView';
 import JardProcProducts from '@/components/JardProcProducts';
@@ -453,6 +454,10 @@ const DashboardPage = () => {
 
       {activeView === 'staff' && (
         <StaffView />
+      )}
+
+      {activeView === 'portfolios' && (
+        <PortfoliosView />
       )}
 
       {/* Account Deletion Requests */}
